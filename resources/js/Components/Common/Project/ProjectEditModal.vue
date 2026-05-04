@@ -22,6 +22,7 @@ import ProjectEditBillableSection from '@/packages/ui/src/Project/ProjectEditBil
 import { isAllowedToPerformPremiumAction } from '@/utils/billing';
 import { useOrganizationQuery } from '@/utils/useOrganizationQuery';
 import { getCurrentOrganizationId } from '@/utils/useUser';
+import { Checkbox } from '@/packages/ui/src';
 
 const { updateProject } = useProjectsStore();
 const { clients } = useClientsQuery();
@@ -43,6 +44,7 @@ const project = ref<CreateProjectBody>({
     client_id: props.originalProject.client_id,
     billable_rate: props.originalProject.billable_rate,
     is_billable: props.originalProject.is_billable,
+    is_public: props.originalProject.is_public,
     estimated_time: props.originalProject.estimated_time,
 });
 
@@ -122,6 +124,13 @@ async function submitBillableRate() {
                     :currency="getOrganizationCurrencyString()"
                     :organization-billable-rate="organization?.billable_rate ?? null"
                     @submit="submit"></ProjectEditBillableSection>
+                <Field>
+                    <FieldLabel>Visibility</FieldLabel>
+                    <Field orientation="horizontal" class="px-2 py-3">
+                        <Checkbox id="is_public" v-model:checked="project.is_public"></Checkbox>
+                        <FieldLabel for="is_public">Public Project</FieldLabel>
+                    </Field>
+                </Field>
                 <EstimatedTimeSection
                     v-if="isAllowedToPerformPremiumAction()"
                     v-model="project.estimated_time"

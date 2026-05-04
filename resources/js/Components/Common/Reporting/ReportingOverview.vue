@@ -4,6 +4,7 @@ import {
     ArrowDownTrayIcon,
     EllipsisVerticalIcon,
     LockClosedIcon,
+    XMarkIcon,
 } from '@heroicons/vue/20/solid';
 import { SaveIcon } from 'lucide-vue-next';
 import { getOrganizationCurrencyString } from '@/utils/money';
@@ -49,6 +50,7 @@ import type { ExportFormat } from '@/types/reporting';
 import { getRandomColorWithSeed } from '@/packages/ui/src/utils/color';
 import { useProjectsQuery } from '@/utils/useProjectsQuery';
 import { useAggregatedTimeEntriesQuery } from '@/utils/useAggregatedTimeEntriesQuery';
+import { mapGroupingTreeToTableRows, type GroupingTreeNode } from '@/utils/reportingGroupedTable';
 
 type TimeEntryRoundingType = 'up' | 'down' | 'nearest';
 
@@ -75,6 +77,7 @@ const roundingMinutes = ref<number>(15);
 
 const group = useStorage<GroupingOption>('reporting-group', 'project');
 const subGroup = useStorage<GroupingOption>('reporting-sub-group', 'task');
+const thirdGroup = useStorage<GroupingOption | null>('reporting-third-group', null);
 
 const reportingStore = useReportingStore();
 const { groupByOptions, getNameForReportingRowEntry, emptyPlaceholder } = reportingStore;
@@ -96,6 +99,22 @@ watch(
             if (fallbackOption?.value) {
                 subGroup.value = fallbackOption.value;
             }
+        }
+    },
+    { immediate: true }
+);
+
+watch(
+    [group, subGroup],
+    () => {
+        if (thirdGroup.value === null) {
+            return;
+        }
+        if (thirdGroup.value === group.value || thirdGroup.value === subGroup.value) {
+            const fallbackOption = groupByOptions.find(
+                (el) => el.value !== group.value && el.value !== subGroup.value
+            );
+            thirdGroup.value = fallbackOption?.value ?? null;
         }
     },
     { immediate: true }
@@ -142,6 +161,7 @@ const tableQueryParams = computed<AggregatedTimeEntriesQueryParams>(() => {
         ...filterParams.value,
         group: group.value,
         sub_group: subGroup.value,
+        third_group: thirdGroup.value ?? undefined,
     };
 });
 
@@ -154,6 +174,21 @@ const aggregatedGraphTimeEntries = computed<AggregatedTimeEntries | undefined>((
 
 const aggregatedTableTimeEntries = computed<AggregatedTimeEntries | undefined>(() => {
     return tableResponse.value?.data as AggregatedTimeEntries | undefined;
+});
+
+const reportTotalSeconds = computed(() => aggregatedTableTimeEntries.value?.seconds ?? 0);
+
+const showPercentColumn = computed(() => reportTotalSeconds.value > 0);
+
+const tableGridTemplate = computed(() => {
+    const parts = ['1fr', '100px'];
+    if (showPercentColumn.value) {
+        parts.push('minmax(3.25rem,auto)');
+    }
+    if (showBillableRate.value) {
+        parts.push('150px');
+    }
+    return parts.join(' ');
 });
 
 const reportProperties = computed(() => {
@@ -171,6 +206,7 @@ const reportProperties = computed(() => {
         billable: billableValue,
         group: group.value,
         sub_group: subGroup.value,
+        third_group: thirdGroup.value ?? undefined,
         history_group: getOptimalGroupingOption(startDate.value, endDate.value),
     } as CreateReportBodyProperties;
 });
@@ -188,6 +224,7 @@ async function downloadExport(format: ExportFormat) {
                         ...filterParams.value,
                         group: group.value,
                         sub_group: subGroup.value,
+                        third_group: thirdGroup.value ?? undefined,
                         history_group: getOptimalGroupingOption(startDate.value, endDate.value),
                         format: format,
                     },
@@ -261,24 +298,12 @@ const groupedPieChartData = computed(() => {
 });
 
 const tableData = computed(() => {
-    return aggregatedTableTimeEntries.value?.grouped_data?.map((entry) => {
-        return {
-            seconds: entry.seconds,
-            cost: entry.cost,
-            description: getNameForReportingRowEntry(
-                entry.key,
-                aggregatedTableTimeEntries.value?.grouped_type ?? null
-            ),
-            grouped_data:
-                entry.grouped_data?.map((el) => {
-                    return {
-                        seconds: el.seconds,
-                        cost: el.cost,
-                        description: getNameForReportingRowEntry(el.key, entry.grouped_type),
-                    };
-                }) ?? [],
-        };
-    });
+    const rootType = aggregatedTableTimeEntries.value?.grouped_type ?? null;
+    return aggregatedTableTimeEntries.value?.grouped_data?.map((entry) =>
+        mapGroupingTreeToTableRows(entry as GroupingTreeNode, rootType, (e, gt) =>
+            getNameForReportingRowEntry(e.key ?? null, gt)
+        )
+    );
 });
 </script>
 
@@ -394,15 +419,50 @@ const tableData = computed(() => {
                         :group-by-options="
                             groupByOptions.filter((el) => el.value !== group)
                         "></ReportingGroupBySelect>
+                    <template v-if="thirdGroup !== null">
+                        <span>and</span>
+                        <ReportingGroupBySelect
+                            v-model="thirdGroup"
+                            :group-by-options="
+                                groupByOptions.filter(
+                                    (el) => el.value !== group && el.value !== subGroup
+                                )
+                            "></ReportingGroupBySelect>
+                        <button
+                            class="inline-flex items-center text-text-tertiary hover:text-text-primary"
+                            title="Remove third group"
+                            @click="thirdGroup = null">
+                            <XMarkIcon class="h-4 w-4" />
+                        </button>
+                    </template>
+                    <button
+                        v-else
+                        class="text-sm text-text-tertiary hover:text-text-primary"
+                        @click="
+                            thirdGroup =
+                                groupByOptions.find(
+                                    (el) => el.value !== group && el.value !== subGroup
+                                )?.value ?? null
+                        ">
+                        + Add group
+                    </button>
                 </div>
                 <div
                     class="grid items-center"
-                    :style="`grid-template-columns: 1fr 100px ${showBillableRate ? '150px' : ''}`">
+                    :style="`grid-template-columns: ${tableGridTemplate}`">
                     <div
                         class="contents [&>*]:border-card-background-separator [&>*]:border-b [&>*]:bg-secondary [&>*]:pb-1.5 [&>*]:pt-1 text-text-tertiary text-sm">
                         <div class="pl-6">Name</div>
-                        <div class="text-right" :class="!showBillableRate ? 'pr-6' : ''">
+                        <div
+                            class="text-right"
+                            :class="!showBillableRate && !showPercentColumn ? 'pr-6' : ''">
                             Duration
+                        </div>
+                        <div
+                            v-if="showPercentColumn"
+                            class="text-right text-sm tabular-nums"
+                            :class="!showBillableRate ? 'pr-6' : ''">
+                            %
                         </div>
                         <div v-if="showBillableRate" class="text-right pr-6">Cost</div>
                     </div>
@@ -415,7 +475,8 @@ const tableData = computed(() => {
                             v-for="entry in tableData"
                             :key="entry.description ?? 'none'"
                             :currency="getOrganizationCurrencyString()"
-                            :type="aggregatedTableTimeEntries.grouped_type"
+                            :depth="0"
+                            :report-total-seconds="reportTotalSeconds"
                             :show-cost="showBillableRate"
                             :entry="entry"></ReportingRow>
                         <div class="contents [&>*]:transition text-text-tertiary [&>*]:h-[50px]">
@@ -424,7 +485,7 @@ const tableData = computed(() => {
                             </div>
                             <div
                                 class="justify-end flex items-center font-medium"
-                                :class="!showBillableRate ? 'pr-6' : ''">
+                                :class="!showBillableRate && !showPercentColumn ? 'pr-6' : ''">
                                 {{
                                     formatReportingDuration(
                                         aggregatedTableTimeEntries.seconds,
@@ -432,6 +493,12 @@ const tableData = computed(() => {
                                         organization?.number_format
                                     )
                                 }}
+                            </div>
+                            <div
+                                v-if="showPercentColumn"
+                                class="justify-end flex items-center font-medium text-sm tabular-nums text-text-secondary"
+                                :class="!showBillableRate ? 'pr-6' : ''">
+                                100.00%
                             </div>
                             <div
                                 v-if="showBillableRate"
@@ -452,8 +519,7 @@ const tableData = computed(() => {
                     </template>
                     <div
                         v-else
-                        class="chart flex flex-col items-center justify-center py-12"
-                        :class="showBillableRate ? 'col-span-3' : 'col-span-2'">
+                        class="chart col-span-full flex flex-col items-center justify-center py-12">
                         <p class="text-lg text-text-primary font-medium">No time entries found</p>
                         <p>Try to change the filters and time range</p>
                     </div>

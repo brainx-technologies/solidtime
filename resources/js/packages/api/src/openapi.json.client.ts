@@ -449,6 +449,7 @@ const ReportStoreRequest = z
                 task_ids: z.union([z.array(z.string()), z.null()]).optional(),
                 group: TimeEntryAggregationType,
                 sub_group: TimeEntryAggregationType,
+                third_group: TimeEntryAggregationType.optional(),
                 history_group: TimeEntryAggregationTypeInterval,
                 week_start: Weekday.optional(),
                 timezone: z.union([z.string(), z.null()]).optional(),
@@ -470,6 +471,7 @@ const DetailedReportResource = z
             .object({
                 group: z.string(),
                 sub_group: z.string(),
+                third_group: z.union([z.string(), z.null()]),
                 history_group: z.string(),
                 start: z.string(),
                 end: z.string(),
@@ -513,6 +515,7 @@ const DetailedWithDataReportResource = z
             .object({
                 group: z.string(),
                 sub_group: z.string(),
+                third_group: z.union([z.string(), z.null()]),
                 history_group: z.string(),
                 start: z.string(),
                 end: z.string(),
@@ -3970,6 +3973,25 @@ If the group parameters are all set to &#x60;null&#x60; or are all missing, the 
                     .optional(),
             },
             {
+                name: 'third_group',
+                type: 'Query',
+                schema: z
+                    .enum([
+                        'day',
+                        'week',
+                        'month',
+                        'year',
+                        'user',
+                        'project',
+                        'task',
+                        'client',
+                        'billable',
+                        'description',
+                        'tag',
+                    ])
+                    .optional(),
+            },
+            {
                 name: 'member_id',
                 type: 'Query',
                 schema: z.string().optional(),
@@ -4152,6 +4174,25 @@ If the group parameters are all set to &#x60;null&#x60; or are all missing, the 
                     'description',
                     'tag',
                 ]),
+            },
+            {
+                name: 'third_group',
+                type: 'Query',
+                schema: z
+                    .enum([
+                        'day',
+                        'week',
+                        'month',
+                        'year',
+                        'user',
+                        'project',
+                        'task',
+                        'client',
+                        'billable',
+                        'description',
+                        'tag',
+                    ])
+                    .optional(),
             },
             {
                 name: 'history_group',

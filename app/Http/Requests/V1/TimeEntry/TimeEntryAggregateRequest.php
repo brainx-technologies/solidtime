@@ -37,11 +37,17 @@ class TimeEntryAggregateRequest extends BaseFormRequest
             // Type of first grouping
             'group' => [
                 'nullable',
-                'required_with:sub_group',
+                'required_with:sub_group,third_group',
                 Rule::enum(TimeEntryAggregationType::class),
             ],
             // Type of second grouping
             'sub_group' => [
+                'nullable',
+                'required_with:third_group',
+                Rule::enum(TimeEntryAggregationType::class),
+            ],
+            // Type of third grouping
+            'third_group' => [
                 'nullable',
                 Rule::enum(TimeEntryAggregationType::class),
             ],
@@ -191,6 +197,11 @@ class TimeEntryAggregateRequest extends BaseFormRequest
     public function getSubGroup(): ?TimeEntryAggregationType
     {
         return $this->input('sub_group') !== null ? TimeEntryAggregationType::from($this->input('sub_group')) : null;
+    }
+
+    public function getThirdGroup(): ?TimeEntryAggregationType
+    {
+        return $this->input('third_group') !== null ? TimeEntryAggregationType::from($this->input('third_group')) : null;
     }
 
     public function getFillGapsInTimeGroups(): bool

@@ -147,6 +147,10 @@ class ReportStoreRequest extends BaseFormRequest
                 'required',
                 Rule::enum(TimeEntryAggregationType::class),
             ],
+            'properties.third_group' => [
+                'nullable',
+                Rule::enum(TimeEntryAggregationType::class),
+            ],
             'properties.history_group' => [
                 'required',
                 Rule::enum(TimeEntryAggregationTypeInterval::class),
@@ -242,6 +246,13 @@ class ReportStoreRequest extends BaseFormRequest
     public function getPropertySubGroup(): TimeEntryAggregationType
     {
         return TimeEntryAggregationType::from($this->input('properties.sub_group'));
+    }
+
+    public function getPropertyThirdGroup(): ?TimeEntryAggregationType
+    {
+        return $this->input('properties.third_group') !== null
+            ? TimeEntryAggregationType::from($this->input('properties.third_group'))
+            : null;
     }
 
     public function getPropertyHistoryGroup(): TimeEntryAggregationTypeInterval

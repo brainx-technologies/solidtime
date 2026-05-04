@@ -22,6 +22,8 @@ class ReportPropertiesDto implements Castable
 
     public TimeEntryAggregationType $subGroup;
 
+    public ?TimeEntryAggregationType $thirdGroup = null;
+
     public TimeEntryAggregationTypeInterval $historyGroup;
 
     public Weekday $weekStart;
@@ -118,6 +120,9 @@ class ReportPropertiesDto implements Castable
                 $dto->taskIds = $data->taskIds ? ReportPropertiesDto::idArrayToCollection($data->taskIds) : null;
                 $dto->group = TimeEntryAggregationType::from($data->group);
                 $dto->subGroup = TimeEntryAggregationType::from($data->subGroup);
+                $dto->thirdGroup = isset($data->thirdGroup) && $data->thirdGroup !== null
+                    ? TimeEntryAggregationType::from($data->thirdGroup)
+                    : null;
                 $dto->historyGroup = TimeEntryAggregationTypeInterval::from($data->historyGroup);
                 $dto->weekStart = Weekday::from($data->weekStart);
                 $dto->timezone = $data->timezone;
@@ -147,6 +152,7 @@ class ReportPropertiesDto implements Castable
                     'taskIds' => $value->taskIds?->toArray(),
                     'group' => $value->group->value,
                     'subGroup' => $value->subGroup->value,
+                    'thirdGroup' => $value->thirdGroup?->value,
                     'historyGroup' => $value->historyGroup->value,
                     'weekStart' => $value->weekStart->value,
                     'timezone' => $value->timezone,

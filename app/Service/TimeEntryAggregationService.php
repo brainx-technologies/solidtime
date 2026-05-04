@@ -44,7 +44,7 @@ class TimeEntryAggregationService
      *       cost: int|null
      * }
      */
-    public function getAggregatedTimeEntries(Builder $timeEntriesQuery, ?TimeEntryAggregationType $group1Type, ?TimeEntryAggregationType $group2Type, string $timezone, Weekday $startOfWeek, bool $fillGapsInTimeGroups, ?Carbon $start, ?Carbon $end, bool $showBillableRate, ?TimeEntryRoundingType $roundingType, ?int $roundingMinutes): array
+    public function getAggregatedTimeEntries(Builder $timeEntriesQuery, ?TimeEntryAggregationType $group1Type, ?TimeEntryAggregationType $group2Type, string $timezone, Weekday $startOfWeek, bool $fillGapsInTimeGroups, ?Carbon $start, ?Carbon $end, bool $showBillableRate, ?TimeEntryRoundingType $roundingType, ?int $roundingMinutes, ?TimeEntryAggregationType $group3Type = null): array
     {
         $fillGapsInTimeGroupsIsPossible = $fillGapsInTimeGroups && $start !== null && $end !== null;
         /** @var Builder<TimeEntry> $baseTotalsQuery */
@@ -53,7 +53,7 @@ class TimeEntryAggregationService
         $group2Select = null;
         $groupBy = null;
         // If any grouping is by tag, expand rows per tag and ensure a NULL row for entries without tags
-        if (($group1Type === TimeEntryAggregationType::Tag) || ($group2Type === TimeEntryAggregationType::Tag)) {
+        if (($group1Type === TimeEntryAggregationType::Tag) || ($group2Type === TimeEntryAggregationType::Tag) || ($group3Type === TimeEntryAggregationType::Tag)) {
             $timeEntriesQuery->crossJoin(DB::raw(
                 "LATERAL (\n".
                 "  SELECT jsonb_array_elements_text(coalesce(tags, '[]'::jsonb)) AS tag\n".
@@ -68,7 +68,17 @@ class TimeEntryAggregationService
             if ($group2Type !== null) {
                 $group2Select = $this->getGroupByQuery($group2Type, $timezone, $startOfWeek);
                 $groupBy = ['group_1', 'group_2'];
+                if ($group3Type !== null) {
+                    $group3Select = $this->getGroupByQuery($group3Type, $timezone, $startOfWeek);
+                    $groupBy = ['group_1', 'group_2', 'group_3'];
+                } else {
+                    $group3Select = null;
+                }
+            } else {
+                $group3Select = null;
             }
+        } else {
+            $group3Select = null;
         }
 
         $startRawSelect = app(TimeEntryService::class)->getStartSelectRawForRounding($roundingType, $roundingMinutes);
@@ -77,6 +87,7 @@ class TimeEntryAggregationService
         $timeEntriesQuery->selectRaw(
             ($group1Select !== null ? $group1Select.' as group_1,' : '').
             ($group2Select !== null ? $group2Select.' as group_2,' : '').
+            ($group3Select !== null ? $group3Select.' as group_3,' : '').
             ' round(sum(extract(epoch from ('.$endRawSelect.' - '.$startRawSelect.')))) as aggregate,'.
             ' round(sum(extract(epoch from ('.$endRawSelect.' - '.$startRawSelect.')) * (coalesce(billable_rate, 0)::float/60/60))) as cost'
         );
@@ -87,13 +98,22 @@ class TimeEntryAggregationService
             $timeEntriesQuery->orderBy('group_1');
             if ($group2Select !== null) {
                 $timeEntriesQuery->orderBy('group_2');
+                if ($group3Select !== null) {
+                    $timeEntriesQuery->orderBy('group_3');
+                }
             }
         }
 
         $timeEntriesAggregates = $timeEntriesQuery->get();
 
         if ($group1Select !== null) {
-            $groupedAggregates = $timeEntriesAggregates->groupBy($group2Select !== null ? ['group_1', 'group_2'] : ['group_1']);
+            if ($group2Select !== null && $group3Select !== null) {
+                $groupedAggregates = $timeEntriesAggregates->groupBy(['group_1', 'group_2', 'group_3']);
+            } elseif ($group2Select !== null) {
+                $groupedAggregates = $timeEntriesAggregates->groupBy(['group_1', 'group_2']);
+            } else {
+                $groupedAggregates = $timeEntriesAggregates->groupBy(['group_1']);
+            }
 
             $group1Response = [];
             $group1ResponseSum = 0;
@@ -126,16 +146,44 @@ class TimeEntryAggregationService
                     $group2ResponseCost = 0;
                     foreach ($group1Aggregates as $group2 => $aggregate) {
                         /** @var string|int $group2 */
-                        /** @var Collection<int, object{aggregate: int, cost: int}> $aggregate */
-                        $group2Response[] = [
-                            'key' => $group2 === '' ? null : (string) $group2,
-                            'seconds' => (int) $aggregate->get(0)->aggregate,
-                            'cost' => $showBillableRate ? (int) $aggregate->get(0)->cost : null,
-                            'grouped_type' => null,
-                            'grouped_data' => null,
-                        ];
-                        $group2ResponseSum += (int) $aggregate->get(0)->aggregate;
-                        $group2ResponseCost += (int) $aggregate->get(0)->cost;
+                        if ($group3Select !== null) {
+                            /** @var Collection<int, Collection<int, object{aggregate: int, cost: int}>> $aggregate */
+                            $group3Response = [];
+                            $group3ResponseSum = 0;
+                            $group3ResponseCost = 0;
+                            foreach ($aggregate as $group3 => $group3Aggregate) {
+                                /** @var string|int $group3 */
+                                $group3Response[] = [
+                                    'key' => $group3 === '' ? null : (string) $group3,
+                                    'seconds' => (int) $group3Aggregate->get(0)->aggregate,
+                                    'cost' => $showBillableRate ? (int) $group3Aggregate->get(0)->cost : null,
+                                    'grouped_type' => null,
+                                    'grouped_data' => null,
+                                ];
+                                $group3ResponseSum += (int) $group3Aggregate->get(0)->aggregate;
+                                $group3ResponseCost += (int) $group3Aggregate->get(0)->cost;
+                            }
+                            $group2Response[] = [
+                                'key' => $group2 === '' ? null : (string) $group2,
+                                'seconds' => $group3ResponseSum,
+                                'cost' => $showBillableRate ? $group3ResponseCost : null,
+                                'grouped_type' => $group3Type?->value,
+                                'grouped_data' => $group3Response,
+                            ];
+                            $group2ResponseSum += $group3ResponseSum;
+                            $group2ResponseCost += $group3ResponseCost;
+                        } else {
+                            /** @var Collection<int, object{aggregate: int, cost: int}> $aggregate */
+                            $group2Response[] = [
+                                'key' => $group2 === '' ? null : (string) $group2,
+                                'seconds' => (int) $aggregate->get(0)->aggregate,
+                                'cost' => $showBillableRate ? (int) $aggregate->get(0)->cost : null,
+                                'grouped_type' => null,
+                                'grouped_data' => null,
+                            ];
+                            $group2ResponseSum += (int) $aggregate->get(0)->aggregate;
+                            $group2ResponseCost += (int) $aggregate->get(0)->cost;
+                        }
                     }
                     // Override primary group totals when Tag is subgroup to avoid double counting
                     if ($group2Type === TimeEntryAggregationType::Tag) {
@@ -164,7 +212,7 @@ class TimeEntryAggregationService
             }
 
             // If Tag is selected in any grouping, compute overall totals from base (non-tag-expanded) query to avoid double counting
-            $hasTagGrouping = ($group1Type === TimeEntryAggregationType::Tag) || ($group2Type === TimeEntryAggregationType::Tag);
+            $hasTagGrouping = ($group1Type === TimeEntryAggregationType::Tag) || ($group2Type === TimeEntryAggregationType::Tag) || ($group3Type === TimeEntryAggregationType::Tag);
             if ($hasTagGrouping) {
                 // Reset selects and ordering on the cloned base query
                 $baseTotals = $baseTotalsQuery
@@ -181,7 +229,7 @@ class TimeEntryAggregationService
             }
 
             if ($fillGapsInTimeGroupsIsPossible) {
-                $group1Response = $this->fillGapsInTimeGroups($group1Response, $group1Type, $group2Type, $timezone, $startOfWeek, $start, $end);
+                $group1Response = $this->fillGapsInTimeGroups($group1Response, $group1Type, $group2Type, $timezone, $startOfWeek, $start, $end, $group3Type);
             }
         } else {
             $group1Response = null;
@@ -223,12 +271,13 @@ class TimeEntryAggregationService
      *       cost: int|null
      * }
      */
-    public function getAggregatedTimeEntriesWithDescriptions(Builder $timeEntriesQuery, ?TimeEntryAggregationType $group1Type, ?TimeEntryAggregationType $group2Type, string $timezone, Weekday $startOfWeek, bool $fillGapsInTimeGroups, ?Carbon $start, ?Carbon $end, bool $showBillableRate, ?TimeEntryRoundingType $roundingType, ?int $roundingMinutes): array
+    public function getAggregatedTimeEntriesWithDescriptions(Builder $timeEntriesQuery, ?TimeEntryAggregationType $group1Type, ?TimeEntryAggregationType $group2Type, string $timezone, Weekday $startOfWeek, bool $fillGapsInTimeGroups, ?Carbon $start, ?Carbon $end, bool $showBillableRate, ?TimeEntryRoundingType $roundingType, ?int $roundingMinutes, ?TimeEntryAggregationType $group3Type = null): array
     {
-        $aggregatedTimeEntries = $this->getAggregatedTimeEntries($timeEntriesQuery, $group1Type, $group2Type, $timezone, $startOfWeek, $fillGapsInTimeGroups, $start, $end, $showBillableRate, $roundingType, $roundingMinutes);
+        $aggregatedTimeEntries = $this->getAggregatedTimeEntries($timeEntriesQuery, $group1Type, $group2Type, $timezone, $startOfWeek, $fillGapsInTimeGroups, $start, $end, $showBillableRate, $roundingType, $roundingMinutes, $group3Type);
 
         $keysGroup1 = [];
         $keysGroup2 = [];
+        $keysGroup3 = [];
 
         if ($aggregatedTimeEntries['grouped_data'] !== null) {
             foreach ($aggregatedTimeEntries['grouped_data'] as $group1) {
@@ -236,6 +285,11 @@ class TimeEntryAggregationService
                 if ($group1['grouped_data'] !== null) {
                     foreach ($group1['grouped_data'] as $group2) {
                         $keysGroup2[] = $group2['key'];
+                        if ($group2['grouped_data'] !== null) {
+                            foreach ($group2['grouped_data'] as $group3) {
+                                $keysGroup3[] = $group3['key'];
+                            }
+                        }
                     }
                 }
             }
@@ -243,6 +297,7 @@ class TimeEntryAggregationService
 
         $descriptionMapGroup1 = $group1Type !== null ? $this->loadDescriptorsMap($keysGroup1, $group1Type) : [];
         $descriptionMapGroup2 = $group2Type !== null ? $this->loadDescriptorsMap($keysGroup2, $group2Type) : [];
+        $descriptionMapGroup3 = $group3Type !== null ? $this->loadDescriptorsMap($keysGroup3, $group3Type) : [];
 
         if ($aggregatedTimeEntries['grouped_data'] !== null) {
             foreach ($aggregatedTimeEntries['grouped_data'] as $keyGroup1 => $group1) {
@@ -252,6 +307,12 @@ class TimeEntryAggregationService
                     foreach ($aggregatedTimeEntries['grouped_data'][$keyGroup1]['grouped_data'] as $keyGroup2 => $group2) {
                         $aggregatedTimeEntries['grouped_data'][$keyGroup1]['grouped_data'][$keyGroup2]['description'] = $group2['key'] !== null ? ($descriptionMapGroup2[$group2['key']]['description'] ?? null) : null;
                         $aggregatedTimeEntries['grouped_data'][$keyGroup1]['grouped_data'][$keyGroup2]['color'] = $group2['key'] !== null ? ($descriptionMapGroup2[$group2['key']]['color'] ?? null) : null;
+                        if ($aggregatedTimeEntries['grouped_data'][$keyGroup1]['grouped_data'][$keyGroup2]['grouped_data'] !== null) {
+                            foreach ($aggregatedTimeEntries['grouped_data'][$keyGroup1]['grouped_data'][$keyGroup2]['grouped_data'] as $keyGroup3 => $group3) {
+                                $aggregatedTimeEntries['grouped_data'][$keyGroup1]['grouped_data'][$keyGroup2]['grouped_data'][$keyGroup3]['description'] = $group3['key'] !== null ? ($descriptionMapGroup3[$group3['key']]['description'] ?? null) : null;
+                                $aggregatedTimeEntries['grouped_data'][$keyGroup1]['grouped_data'][$keyGroup2]['grouped_data'][$keyGroup3]['color'] = $group3['key'] !== null ? ($descriptionMapGroup3[$group3['key']]['color'] ?? null) : null;
+                            }
+                        }
                     }
                 }
             }
@@ -297,7 +358,7 @@ class TimeEntryAggregationService
         $descriptorMap = [];
         if ($type === TimeEntryAggregationType::Client) {
             $clients = Client::query()
-                ->whereIn('id', $keys)
+                ->whereIn('id', $keys, 'and', false)
                 ->select('id', 'name')
                 ->get();
             foreach ($clients as $client) {
@@ -308,7 +369,7 @@ class TimeEntryAggregationService
             }
         } elseif ($type === TimeEntryAggregationType::User) {
             $users = User::query()
-                ->whereIn('id', $keys)
+                ->whereIn('id', $keys, 'and', false)
                 ->select('id', 'name')
                 ->get();
             foreach ($users as $user) {
@@ -319,7 +380,7 @@ class TimeEntryAggregationService
             }
         } elseif ($type === TimeEntryAggregationType::Project) {
             $projects = Project::query()
-                ->whereIn('id', $keys)
+                ->whereIn('id', $keys, 'and', false)
                 ->select('id', 'name', 'color')
                 ->get();
             foreach ($projects as $project) {
@@ -330,7 +391,7 @@ class TimeEntryAggregationService
             }
         } elseif ($type === TimeEntryAggregationType::Task) {
             $tasks = Task::query()
-                ->whereIn('id', $keys)
+                ->whereIn('id', $keys, 'and', false)
                 ->select('id', 'name')
                 ->get();
             foreach ($tasks as $task) {
@@ -355,7 +416,7 @@ class TimeEntryAggregationService
             }
         } elseif ($type === TimeEntryAggregationType::Tag) {
             $tags = Tag::query()
-                ->whereIn('id', $keys)
+                ->whereIn('id', $keys, 'and', false)
                 ->select('id', 'name')
                 ->get();
             foreach ($tags as $tag) {
@@ -397,19 +458,23 @@ class TimeEntryAggregationService
      *            }>
      *        }>
      */
-    public function fillGapsInTimeGroups(array $data, TimeEntryAggregationType $groupType, ?TimeEntryAggregationType $subGroupType, string $timezone, Weekday $startOfWeek, Carbon $start, Carbon $end): array
+    public function fillGapsInTimeGroups(array $data, TimeEntryAggregationType $groupType, ?TimeEntryAggregationType $subGroupType, string $timezone, Weekday $startOfWeek, Carbon $start, Carbon $end, ?TimeEntryAggregationType $thirdGroupType = null): array
     {
         $interval = $groupType->toInterval();
         if ($interval === null) {
+            if ($subGroupType === null) {
+                return $data;
+            }
             foreach ($data as $key => $item) {
                 $data[$key]['grouped_data'] = $this->fillGapsInTimeGroups(
                     $item['grouped_data'],
                     $subGroupType,
-                    null,
+                    $thirdGroupType,
                     $timezone,
                     $startOfWeek,
                     $start,
-                    $end
+                    $end,
+                    null
                 );
             }
 
@@ -443,11 +508,12 @@ class TimeEntryAggregationService
                             : $this->fillGapsInTimeGroups(
                                 $foundDataSet['grouped_data'],
                                 $subGroupType,
-                                null,
+                                $thirdGroupType,
                                 $timezone,
                                 $startOfWeek,
                                 $start,
-                                $end
+                                $end,
+                                null
                             ),
                     ];
                 } else {
@@ -509,6 +575,8 @@ class TimeEntryAggregationService
         } elseif ($group === TimeEntryAggregationType::Tag) {
             return 'tag';
         }
+
+        throw new \LogicException('Unsupported grouping type');
     }
 
     /**

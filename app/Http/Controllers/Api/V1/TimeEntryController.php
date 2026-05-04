@@ -382,6 +382,7 @@ class TimeEntryController extends Controller
 
         $group1Type = $request->getGroup();
         $group2Type = $request->getSubGroup();
+        $group3Type = $request->getThirdGroup();
         $timeEntriesAggregateQuery = $this->getTimeEntriesAggregateQuery($organization, $request, $member);
         $roundingType = $canAccessPremiumFeatures ? $request->getRoundingType() : null;
         $roundingMinutes = $canAccessPremiumFeatures ? $request->getRoundingMinutes() : null;
@@ -397,7 +398,8 @@ class TimeEntryController extends Controller
             $request->getEnd(),
             $showBillableRate,
             $roundingType,
-            $roundingMinutes
+            $roundingMinutes,
+            $group3Type
         );
 
         return [
@@ -436,6 +438,7 @@ class TimeEntryController extends Controller
 
         $group = $request->getGroup();
         $subGroup = $request->getSubGroup();
+        $thirdGroup = $request->getThirdGroup();
         $timeEntriesAggregateQuery = $this->getTimeEntriesAggregateQuery($organization, $request, $member);
         $roundingType = $canAccessPremiumFeatures ? $request->getRoundingType() : null;
         $roundingMinutes = $canAccessPremiumFeatures ? $request->getRoundingMinutes() : null;
@@ -451,7 +454,8 @@ class TimeEntryController extends Controller
             $request->getEnd(),
             $showBillableRate,
             $roundingType,
-            $roundingMinutes
+            $roundingMinutes,
+            $thirdGroup
         );
         $dataHistoryChart = $timeEntryAggregationService->getAggregatedTimeEntries(
             $timeEntriesAggregateQuery->clone(),
@@ -494,6 +498,7 @@ class TimeEntryController extends Controller
                 'currency' => $currency,
                 'group' => $group,
                 'subGroup' => $subGroup,
+                'thirdGroup' => $thirdGroup,
                 'timezone' => $timezone,
                 'start' => $request->getStart()->timezone($timezone),
                 'end' => $request->getEnd()->timezone($timezone),

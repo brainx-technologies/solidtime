@@ -52,6 +52,11 @@ class TimeEntryAggregateExportRequest extends BaseFormRequest
                 'required',
                 Rule::enum(TimeEntryAggregationType::class),
             ],
+            // Type of third grouping
+            'third_group' => [
+                'nullable',
+                Rule::enum(TimeEntryAggregationType::class),
+            ],
             // Type of grouping of the historic aggregation (time chart)
             'history_group' => [
                 'required',
@@ -214,6 +219,11 @@ class TimeEntryAggregateExportRequest extends BaseFormRequest
     public function getSubGroup(): TimeEntryAggregationType
     {
         return TimeEntryAggregationType::from($this->input('sub_group'));
+    }
+
+    public function getThirdGroup(): ?TimeEntryAggregationType
+    {
+        return $this->input('third_group') !== null ? TimeEntryAggregationType::from($this->input('third_group')) : null;
     }
 
     public function getHistoryGroup(): TimeEntryAggregationType

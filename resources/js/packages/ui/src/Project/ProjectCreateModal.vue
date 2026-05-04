@@ -9,7 +9,7 @@ import PrimaryButton from '@/packages/ui/src/Buttons/PrimaryButton.vue';
 import { useFocus } from '@vueuse/core';
 import ClientDropdown from '@/packages/ui/src/Client/ClientDropdown.vue';
 import ProjectColorSelector from '@/packages/ui/src/Project/ProjectColorSelector.vue';
-import { Button } from '@/packages/ui/src/Buttons';
+import { Button, Checkbox } from '@/packages/ui/src';
 import { ChevronDown } from 'lucide-vue-next';
 import { UserCircleIcon } from '@heroicons/vue/20/solid';
 import EstimatedTimeSection from '@/packages/ui/src/EstimatedTimeSection.vue';
@@ -40,6 +40,7 @@ const project = ref<CreateProjectBody>({
     client_id: null,
     billable_rate: null,
     is_billable: false,
+    is_public: false,
     estimated_time: null,
 });
 
@@ -52,6 +53,7 @@ async function submit() {
         client_id: null,
         billable_rate: null,
         is_billable: false,
+        is_public: false,
         estimated_time: null,
     };
 }
@@ -119,6 +121,13 @@ const currentClientName = computed(() => {
                     :organization-billable-rate="
                         organizationBillableRate
                     "></ProjectEditBillableSection>
+                <Field>
+                    <FieldLabel>Visibility</FieldLabel>
+                    <Field orientation="horizontal" class="px-2 py-3">
+                        <Checkbox id="is_public" v-model:checked="project.is_public"></Checkbox>
+                        <FieldLabel for="is_public">Public Project</FieldLabel>
+                    </Field>
+                </Field>
                 <EstimatedTimeSection
                     v-if="enableEstimatedTime"
                     v-model="project.estimated_time"
