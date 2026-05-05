@@ -34,6 +34,7 @@ use App\Service\ReportExport\TimeEntriesDetailedExport;
 use App\Service\ReportExport\TimeEntriesReportExport;
 use App\Service\TimeEntryAggregationService;
 use App\Service\TimeEntryFilter;
+use App\Service\TimeEntryMemberFilterResolver;
 use App\Service\TimeEntryService;
 use App\Service\TimezoneService;
 use Gotenberg\Exceptions\GotenbergApiErrored;
@@ -201,7 +202,11 @@ class TimeEntryController extends Controller
         $filter->addEndFilter($request->input('end'));
         $filter->addActiveFilter($request->input('active'));
         $filter->addMemberIdFilter($member);
-        $filter->addMemberIdsFilter($request->input('member_ids'));
+        $filter->addMemberIdsFilter(TimeEntryMemberFilterResolver::resolveForOrganization(
+            $organization,
+            $request->input('member_ids'),
+            $request->input('member_group_ids'),
+        ));
         $filter->addProjectIdsFilter($request->input('project_ids'));
         $filter->addTagIdsFilter($request->input('tag_ids'));
         $filter->addTaskIdsFilter($request->input('task_ids'));
@@ -562,7 +567,11 @@ class TimeEntryController extends Controller
         $filter->addStartFilter($request->input('start'));
         $filter->addActiveFilter($request->input('active'));
         $filter->addMemberIdFilter($member);
-        $filter->addMemberIdsFilter($request->input('member_ids'));
+        $filter->addMemberIdsFilter(TimeEntryMemberFilterResolver::resolveForOrganization(
+            $organization,
+            $request->input('member_ids'),
+            $request->input('member_group_ids'),
+        ));
         $filter->addProjectIdsFilter($request->input('project_ids'));
         $filter->addTagIdsFilter($request->input('tag_ids'));
         $filter->addTaskIdsFilter($request->input('task_ids'));

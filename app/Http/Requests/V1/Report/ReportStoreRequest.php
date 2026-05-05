@@ -9,13 +9,16 @@ use App\Enums\TimeEntryAggregationTypeInterval;
 use App\Enums\TimeEntryRoundingType;
 use App\Enums\Weekday;
 use App\Http\Requests\V1\BaseFormRequest;
+use App\Models\MemberGroup;
 use App\Models\Organization;
 use App\Service\TimeEntryFilter;
 use Illuminate\Contracts\Validation\Rule as LegacyValidationRule;
 use Illuminate\Contracts\Validation\ValidationRule;
+use Illuminate\Database\Eloquent\Builder;
 use Illuminate\Support\Carbon;
 use Illuminate\Support\Str;
 use Illuminate\Validation\Rule;
+use Korridor\LaravelModelValidationRules\Rules\ExistsEloquent;
 
 /**
  * @property Organization $organization Organization from model binding
@@ -72,6 +75,17 @@ class ReportStoreRequest extends BaseFormRequest
             'properties.member_ids.*' => [
                 'string',
                 'uuid',
+            ],
+            'properties.member_group_ids' => [
+                'nullable',
+                'array',
+            ],
+            'properties.member_group_ids.*' => [
+                'string',
+                ExistsEloquent::make(MemberGroup::class, null, function (Builder $builder): Builder {
+                    /** @var Builder<MemberGroup> $builder */
+                    return $builder->whereBelongsTo($this->organization, 'organization');
+                })->uuid(),
             ],
             'properties.billable' => [
                 'nullable',

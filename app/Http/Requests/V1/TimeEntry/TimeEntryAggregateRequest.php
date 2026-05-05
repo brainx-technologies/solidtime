@@ -9,6 +9,7 @@ use App\Enums\TimeEntryRoundingType;
 use App\Http\Requests\V1\BaseFormRequest;
 use App\Models\Client;
 use App\Models\Member;
+use App\Models\MemberGroup;
 use App\Models\Organization;
 use App\Models\Project;
 use App\Models\Tag;
@@ -62,12 +63,22 @@ class TimeEntryAggregateRequest extends BaseFormRequest
             // Filter by multiple member IDs, member IDs are OR combined, but AND combined with the member_id parameter
             'member_ids' => [
                 'array',
-                'min:1',
             ],
             'member_ids.*' => [
                 'string',
                 ExistsEloquent::make(Member::class, null, function (Builder $builder): Builder {
                     /** @var Builder<Member> $builder */
+                    return $builder->whereBelongsTo($this->organization, 'organization');
+                })->uuid(),
+            ],
+            // Filter by member group IDs; members in these groups are OR-merged with member_ids
+            'member_group_ids' => [
+                'array',
+            ],
+            'member_group_ids.*' => [
+                'string',
+                ExistsEloquent::make(MemberGroup::class, null, function (Builder $builder): Builder {
+                    /** @var Builder<MemberGroup> $builder */
                     return $builder->whereBelongsTo($this->organization, 'organization');
                 })->uuid(),
             ],

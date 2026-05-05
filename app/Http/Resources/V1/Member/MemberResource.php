@@ -6,7 +6,7 @@ namespace App\Http\Resources\V1\Member;
 
 use App\Http\Resources\V1\BaseResource;
 use App\Models\Member;
-use App\Models\User;
+use App\Models\MemberGroup;
 use Illuminate\Http\Request;
 
 /**
@@ -17,7 +17,7 @@ class MemberResource extends BaseResource
     /**
      * Transform the resource into an array.
      *
-     * @return array<string, string|bool|int|null|array<string>>
+     * @return array<string, string|bool|int|null|array<int, array<string, string>>>
      */
     public function toArray(Request $request): array
     {
@@ -36,6 +36,15 @@ class MemberResource extends BaseResource
             'is_placeholder' => $this->resource->user->is_placeholder,
             /** @var int|null $billable_rate Billable rate in cents per hour */
             'billable_rate' => $this->resource->billable_rate,
+            /** @var array<int, array{id: string, name: string}>|null $groups Groups the member is assigned to (only included when the relation is loaded) */
+            'groups' => $this->whenLoaded('groups', function () {
+                return $this->resource->groups->map(function (MemberGroup $group): array {
+                    return [
+                        'id' => $group->getKey(),
+                        'name' => $group->name,
+                    ];
+                })->all();
+            }),
         ];
     }
 }

@@ -93,6 +93,7 @@ class ReportController extends Controller
         $properties->end = $request->getPropertyEnd();
         $properties->active = $request->getPropertyActive();
         $properties->setMemberIds($request->input('properties.member_ids', null));
+        $properties->setMemberGroupIds($request->input('properties.member_group_ids', null));
         $properties->billable = $request->getPropertyBillable();
         $properties->setClientIds($request->input('properties.client_ids', null));
         $properties->setProjectIds($request->input('properties.project_ids', null));

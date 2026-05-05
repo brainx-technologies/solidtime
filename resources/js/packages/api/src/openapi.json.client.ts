@@ -271,6 +271,9 @@ const MemberResource = z
         role: z.string(),
         is_placeholder: z.boolean(),
         billable_rate: z.union([z.number(), z.null()]),
+        groups: z
+            .array(z.object({ id: z.string(), name: z.string() }).passthrough())
+            .optional(),
     })
     .passthrough();
 const Role = z.enum(['owner', 'admin', 'manager', 'employee', 'placeholder']);
@@ -279,6 +282,32 @@ const MemberUpdateRequest = z
     .partial()
     .passthrough();
 const MemberMergeIntoRequest = z.object({ member_id: z.string() }).partial().passthrough();
+const MemberGroupResource = z
+    .object({
+        id: z.string(),
+        name: z.string(),
+        organization_id: z.string(),
+        members_count: z.number().int(),
+        members: z
+            .array(
+                z
+                    .object({ id: z.string(), user_id: z.string(), name: z.string() })
+                    .passthrough()
+            )
+            .nullish(),
+        created_at: z.string(),
+        updated_at: z.string(),
+    })
+    .passthrough();
+const MemberGroupStoreRequest = z
+    .object({ name: z.string().min(1).max(255) })
+    .passthrough();
+const MemberGroupUpdateRequest = z
+    .object({ name: z.string().min(1).max(255) })
+    .passthrough();
+const MemberGroupSyncMembersRequest = z
+    .object({ member_ids: z.array(z.string()) })
+    .passthrough();
 const NumberFormat = z.enum([
     'point-comma',
     'comma-point',
@@ -442,6 +471,7 @@ const ReportStoreRequest = z
                 end: z.string(),
                 active: z.union([z.boolean(), z.null()]).optional(),
                 member_ids: z.union([z.array(z.string().uuid()), z.null()]).optional(),
+                member_group_ids: z.union([z.array(z.string().uuid()), z.null()]).optional(),
                 billable: z.union([z.boolean(), z.null()]).optional(),
                 client_ids: z.union([z.array(z.string()), z.null()]).optional(),
                 project_ids: z.union([z.array(z.string()), z.null()]).optional(),
@@ -477,6 +507,7 @@ const DetailedReportResource = z
                 end: z.string(),
                 active: z.union([z.boolean(), z.null()]),
                 member_ids: z.union([z.array(z.string()), z.null()]),
+                member_group_ids: z.union([z.array(z.string()), z.null()]).optional(),
                 billable: z.union([z.boolean(), z.null()]),
                 client_ids: z.union([z.array(z.string()), z.null()]),
                 project_ids: z.union([z.array(z.string()), z.null()]),
@@ -732,6 +763,10 @@ export const schemas = {
     Role,
     MemberUpdateRequest,
     MemberMergeIntoRequest,
+    MemberGroupResource,
+    MemberGroupStoreRequest,
+    MemberGroupUpdateRequest,
+    MemberGroupSyncMembersRequest,
     NumberFormat,
     CurrencyFormat,
     DateFormat,
@@ -2178,6 +2213,21 @@ const endpoints = makeApi([
                 type: 'Query',
                 schema: z.number().int().gte(1).lte(2147483647).optional(),
             },
+            {
+                name: 'search',
+                type: 'Query',
+                schema: z.string().max(255).optional(),
+            },
+            {
+                name: 'role',
+                type: 'Query',
+                schema: Role.optional(),
+            },
+            {
+                name: 'group_id',
+                type: 'Query',
+                schema: z.string().optional(),
+            },
         ],
         response: z
             .object({
@@ -2430,6 +2480,256 @@ const endpoints = makeApi([
                 status: 404,
                 description: `Not found`,
                 schema: z.object({ message: z.string() }).passthrough(),
+            },
+        ],
+    },
+    {
+        method: 'get',
+        path: '/v1/organizations/:organization/member-groups',
+        alias: 'getMemberGroups',
+        requestFormat: 'json',
+        parameters: [
+            {
+                name: 'organization',
+                type: 'Path',
+                schema: z.string(),
+            },
+            {
+                name: 'page',
+                type: 'Query',
+                schema: z.number().int().gte(1).lte(2147483647).optional(),
+            },
+        ],
+        response: z
+            .object({
+                data: z.array(MemberGroupResource),
+                links: z
+                    .object({
+                        first: z.union([z.string(), z.null()]),
+                        last: z.union([z.string(), z.null()]),
+                        prev: z.union([z.string(), z.null()]),
+                        next: z.union([z.string(), z.null()]),
+                    })
+                    .passthrough(),
+                meta: z
+                    .object({
+                        current_page: z.number().int(),
+                        from: z.union([z.number(), z.null()]),
+                        last_page: z.number().int(),
+                        links: z.array(
+                            z
+                                .object({
+                                    url: z.union([z.string(), z.null()]),
+                                    label: z.string(),
+                                    active: z.boolean(),
+                                })
+                                .passthrough()
+                        ),
+                        path: z.union([z.string(), z.null()]),
+                        per_page: z.number().int(),
+                        to: z.union([z.number(), z.null()]),
+                        total: z.number().int(),
+                    })
+                    .passthrough(),
+            })
+            .passthrough(),
+        errors: [
+            {
+                status: 401,
+                description: `Unauthenticated`,
+                schema: z.object({ message: z.string() }).passthrough(),
+            },
+            {
+                status: 403,
+                description: `Authorization error`,
+                schema: z.object({ message: z.string() }).passthrough(),
+            },
+            {
+                status: 404,
+                description: `Not found`,
+                schema: z.object({ message: z.string() }).passthrough(),
+            },
+            {
+                status: 422,
+                description: `Validation error`,
+                schema: z
+                    .object({ message: z.string(), errors: z.record(z.array(z.string())) })
+                    .passthrough(),
+            },
+        ],
+    },
+    {
+        method: 'post',
+        path: '/v1/organizations/:organization/member-groups',
+        alias: 'createMemberGroup',
+        requestFormat: 'json',
+        parameters: [
+            {
+                name: 'body',
+                type: 'Body',
+                schema: MemberGroupStoreRequest,
+            },
+            {
+                name: 'organization',
+                type: 'Path',
+                schema: z.string(),
+            },
+        ],
+        response: z.object({ data: MemberGroupResource }).passthrough(),
+        errors: [
+            {
+                status: 401,
+                description: `Unauthenticated`,
+                schema: z.object({ message: z.string() }).passthrough(),
+            },
+            {
+                status: 403,
+                description: `Authorization error`,
+                schema: z.object({ message: z.string() }).passthrough(),
+            },
+            {
+                status: 404,
+                description: `Not found`,
+                schema: z.object({ message: z.string() }).passthrough(),
+            },
+            {
+                status: 422,
+                description: `Validation error`,
+                schema: z
+                    .object({ message: z.string(), errors: z.record(z.array(z.string())) })
+                    .passthrough(),
+            },
+        ],
+    },
+    {
+        method: 'put',
+        path: '/v1/organizations/:organization/member-groups/:memberGroup',
+        alias: 'updateMemberGroup',
+        requestFormat: 'json',
+        parameters: [
+            {
+                name: 'body',
+                type: 'Body',
+                schema: MemberGroupUpdateRequest,
+            },
+            {
+                name: 'organization',
+                type: 'Path',
+                schema: z.string(),
+            },
+            {
+                name: 'memberGroup',
+                type: 'Path',
+                schema: z.string(),
+            },
+        ],
+        response: z.object({ data: MemberGroupResource }).passthrough(),
+        errors: [
+            {
+                status: 401,
+                description: `Unauthenticated`,
+                schema: z.object({ message: z.string() }).passthrough(),
+            },
+            {
+                status: 403,
+                description: `Authorization error`,
+                schema: z.object({ message: z.string() }).passthrough(),
+            },
+            {
+                status: 404,
+                description: `Not found`,
+                schema: z.object({ message: z.string() }).passthrough(),
+            },
+            {
+                status: 422,
+                description: `Validation error`,
+                schema: z
+                    .object({ message: z.string(), errors: z.record(z.array(z.string())) })
+                    .passthrough(),
+            },
+        ],
+    },
+    {
+        method: 'delete',
+        path: '/v1/organizations/:organization/member-groups/:memberGroup',
+        alias: 'deleteMemberGroup',
+        requestFormat: 'json',
+        parameters: [
+            {
+                name: 'organization',
+                type: 'Path',
+                schema: z.string(),
+            },
+            {
+                name: 'memberGroup',
+                type: 'Path',
+                schema: z.string(),
+            },
+        ],
+        response: z.void(),
+        errors: [
+            {
+                status: 401,
+                description: `Unauthenticated`,
+                schema: z.object({ message: z.string() }).passthrough(),
+            },
+            {
+                status: 403,
+                description: `Authorization error`,
+                schema: z.object({ message: z.string() }).passthrough(),
+            },
+            {
+                status: 404,
+                description: `Not found`,
+                schema: z.object({ message: z.string() }).passthrough(),
+            },
+        ],
+    },
+    {
+        method: 'put',
+        path: '/v1/organizations/:organization/member-groups/:memberGroup/members',
+        alias: 'syncMemberGroupMembers',
+        requestFormat: 'json',
+        parameters: [
+            {
+                name: 'body',
+                type: 'Body',
+                schema: MemberGroupSyncMembersRequest,
+            },
+            {
+                name: 'organization',
+                type: 'Path',
+                schema: z.string(),
+            },
+            {
+                name: 'memberGroup',
+                type: 'Path',
+                schema: z.string(),
+            },
+        ],
+        response: z.object({ data: MemberGroupResource }).passthrough(),
+        errors: [
+            {
+                status: 401,
+                description: `Unauthenticated`,
+                schema: z.object({ message: z.string() }).passthrough(),
+            },
+            {
+                status: 403,
+                description: `Authorization error`,
+                schema: z.object({ message: z.string() }).passthrough(),
+            },
+            {
+                status: 404,
+                description: `Not found`,
+                schema: z.object({ message: z.string() }).passthrough(),
+            },
+            {
+                status: 422,
+                description: `Validation error`,
+                schema: z
+                    .object({ message: z.string(), errors: z.record(z.array(z.string())) })
+                    .passthrough(),
             },
         ],
     },
@@ -3639,7 +3939,12 @@ Users with the permission &#x60;time-entries:view:own&#x60; can only use this en
             {
                 name: 'member_ids',
                 type: 'Query',
-                schema: z.array(z.string()).min(1).optional(),
+                schema: z.array(z.string().uuid()).optional(),
+            },
+            {
+                name: 'member_group_ids',
+                type: 'Query',
+                schema: z.array(z.string().uuid()).optional(),
             },
             {
                 name: 'client_ids',
@@ -4039,7 +4344,12 @@ If the group parameters are all set to &#x60;null&#x60; or are all missing, the 
             {
                 name: 'member_ids',
                 type: 'Query',
-                schema: z.array(z.string()).min(1).optional(),
+                schema: z.array(z.string().uuid()).optional(),
+            },
+            {
+                name: 'member_group_ids',
+                type: 'Query',
+                schema: z.array(z.string().uuid()).optional(),
             },
             {
                 name: 'project_ids',
@@ -4252,7 +4562,12 @@ If the group parameters are all set to &#x60;null&#x60; or are all missing, the 
             {
                 name: 'member_ids',
                 type: 'Query',
-                schema: z.array(z.string()).min(1).optional(),
+                schema: z.array(z.string().uuid()).optional(),
+            },
+            {
+                name: 'member_group_ids',
+                type: 'Query',
+                schema: z.array(z.string().uuid()).optional(),
             },
             {
                 name: 'project_ids',
@@ -4380,7 +4695,12 @@ If the group parameters are all set to &#x60;null&#x60; or are all missing, the 
             {
                 name: 'member_ids',
                 type: 'Query',
-                schema: z.array(z.string().uuid()).min(1).optional(),
+                schema: z.array(z.string().uuid()).optional(),
+            },
+            {
+                name: 'member_group_ids',
+                type: 'Query',
+                schema: z.array(z.string().uuid()).optional(),
             },
             {
                 name: 'client_ids',

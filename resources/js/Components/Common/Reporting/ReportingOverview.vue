@@ -67,6 +67,7 @@ const endDate = useSessionStorage<string>(
 const selectedTags = ref<string[]>([]);
 const selectedProjects = ref<string[]>([]);
 const selectedMembers = ref<string[]>([]);
+const selectedMemberGroups = ref<string[]>([]);
 const selectedTasks = ref<string[]>([]);
 const selectedClients = ref<string[]>([]);
 
@@ -137,6 +138,8 @@ const filterParams = computed<AggregatedTimeEntriesQueryParams>(() => {
         start: getLocalizedDayJs(startDate.value).startOf('day').utc().format(),
         end: getLocalizedDayJs(endDate.value).endOf('day').utc().format(),
         member_ids: selectedMembers.value.length > 0 ? selectedMembers.value : undefined,
+        member_group_ids:
+            selectedMemberGroups.value.length > 0 ? selectedMemberGroups.value : undefined,
         project_ids: selectedProjects.value.length > 0 ? selectedProjects.value : undefined,
         task_ids: selectedTasks.value.length > 0 ? selectedTasks.value : undefined,
         client_ids: selectedClients.value.length > 0 ? selectedClients.value : undefined,
@@ -387,6 +390,7 @@ const tableData = computed(() => {
     </MainContainer>
     <ReportingFilterBar
         v-model:selected-members="selectedMembers"
+        v-model:selected-member-groups="selectedMemberGroups"
         v-model:selected-projects="selectedProjects"
         v-model:selected-tasks="selectedTasks"
         v-model:selected-clients="selectedClients"

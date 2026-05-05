@@ -1,11 +1,12 @@
 <script setup lang="ts">
-import { CheckCircleIcon, TagIcon, UserGroupIcon } from '@heroicons/vue/20/solid';
+import { CheckCircleIcon, RectangleStackIcon, TagIcon, UserGroupIcon } from '@heroicons/vue/20/solid';
 import { FolderIcon } from '@heroicons/vue/16/solid';
 import BillableIcon from '@/packages/ui/src/Icons/BillableIcon.vue';
 import ReportingRoundingControls from '@/Components/Common/Reporting/ReportingRoundingControls.vue';
 import TaskMultiselectDropdown from '@/Components/Common/Task/TaskMultiselectDropdown.vue';
 import ClientMultiselectDropdown from '@/Components/Common/Client/ClientMultiselectDropdown.vue';
 import MemberMultiselectDropdown from '@/Components/Common/Member/MemberMultiselectDropdown.vue';
+import MemberGroupMultiselectDropdown from '@/Components/Common/MemberGroup/MemberGroupMultiselectDropdown.vue';
 import ReportingFilterBadge from '@/Components/Common/Reporting/ReportingFilterBadge.vue';
 import ProjectMultiselectDropdown from '@/Components/Common/Project/ProjectMultiselectDropdown.vue';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/packages/ui/src';
@@ -18,6 +19,7 @@ import { useTagsStore } from '@/utils/useTags';
 type TimeEntryRoundingType = 'up' | 'down' | 'nearest';
 
 const selectedMembers = defineModel<string[]>('selectedMembers', { required: true });
+const selectedMemberGroups = defineModel<string[]>('selectedMemberGroups', { required: true });
 const selectedProjects = defineModel<string[]>('selectedProjects', { required: true });
 const selectedTasks = defineModel<string[]>('selectedTasks', { required: true });
 const selectedClients = defineModel<string[]>('selectedClients', { required: true });
@@ -45,6 +47,15 @@ async function createTag(name: string) {
         <MainContainer class="sm:flex space-y-4 sm:space-y-0 justify-between">
             <div class="flex flex-wrap items-center space-y-2 sm:space-y-0 space-x-3">
                 <div class="text-sm font-medium">Filters</div>
+                <MemberGroupMultiselectDropdown v-model="selectedMemberGroups" @submit="emit('submit')">
+                    <template #trigger>
+                        <ReportingFilterBadge
+                            :count="selectedMemberGroups.length"
+                            :active="selectedMemberGroups.length > 0"
+                            title="Groups"
+                            :icon="RectangleStackIcon" />
+                    </template>
+                </MemberGroupMultiselectDropdown>
                 <MemberMultiselectDropdown v-model="selectedMembers" @submit="emit('submit')">
                     <template #trigger>
                         <ReportingFilterBadge

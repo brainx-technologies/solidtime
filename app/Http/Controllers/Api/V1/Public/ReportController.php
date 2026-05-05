@@ -12,6 +12,7 @@ use App\Models\TimeEntry;
 use App\Service\Dto\ReportPropertiesDto;
 use App\Service\TimeEntryAggregationService;
 use App\Service\TimeEntryFilter;
+use App\Service\TimeEntryMemberFilterResolver;
 use Illuminate\Database\Eloquent\Builder;
 use Illuminate\Database\Eloquent\ModelNotFoundException;
 use Illuminate\Http\Request;
@@ -57,7 +58,11 @@ class ReportController extends Controller
         $filter->addEnd($properties->end);
         $filter->addActive($properties->active);
         $filter->addBillable($properties->billable);
-        $filter->addMemberIdsFilter($properties->memberIds?->toArray());
+        $filter->addMemberIdsFilter(TimeEntryMemberFilterResolver::resolveForOrganization(
+            $report->organization,
+            $properties->memberIds?->toArray(),
+            $properties->memberGroupIds?->toArray(),
+        ));
         $filter->addProjectIdsFilter($properties->projectIds?->toArray());
         $filter->addTagIdsFilter($properties->tagIds?->toArray());
         $filter->addTaskIdsFilter($properties->taskIds?->toArray());

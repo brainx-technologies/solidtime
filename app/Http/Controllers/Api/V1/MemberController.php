@@ -57,9 +57,30 @@ class MemberController extends Controller
     {
         $this->checkPermission($organization, 'members:view');
 
+        $search = $request->getSearch();
+        $role = $request->getRole();
+        $groupId = $request->getGroupId();
+
         $members = Member::query()
             ->whereBelongsTo($organization, 'organization')
-            ->with(['user'])
+            ->with(['user', 'groups'])
+            ->when($role !== null, function ($query) use ($role): void {
+                $query->where('role', $role->value);
+            })
+            ->when($groupId !== null, function ($query) use ($groupId): void {
+                $query->whereHas('groups', function ($subQuery) use ($groupId): void {
+                    $subQuery->where('member_groups.id', $groupId);
+                });
+            })
+            ->when($search !== null, function ($query) use ($search): void {
+                $query->whereHas('user', function ($subQuery) use ($search): void {
+                    $like = '%'.mb_strtolower(str_replace(['%', '_'], ['\\%', '\\_'], $search)).'%';
+                    $subQuery->where(function ($inner) use ($like): void {
+                        $inner->whereRaw('LOWER(name) LIKE ?', [$like])
+                            ->orWhereRaw('LOWER(email) LIKE ?', [$like]);
+                    });
+                });
+            })
             ->orderBy('created_at', 'desc')
             ->paginate(config('app.pagination_per_page_default'));
 

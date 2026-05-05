@@ -41,6 +41,11 @@ class ReportPropertiesDto implements Castable
      */
     public ?Collection $memberIds = null;
 
+    /**
+     * @var Collection<int, string>|null
+     */
+    public ?Collection $memberGroupIds = null;
+
     public ?bool $billable = null;
 
     /**
@@ -113,6 +118,9 @@ class ReportPropertiesDto implements Castable
                 $dto->start = $data->start !== null ? Carbon::createFromFormat('Y-m-d\TH:i:s\Z', $data->start) : null;
                 $dto->active = $data->active;
                 $dto->memberIds = $data->memberIds !== null ? ReportPropertiesDto::idArrayToCollection($data->memberIds) : null;
+                $dto->memberGroupIds = isset($data->memberGroupIds) && $data->memberGroupIds !== null
+                    ? ReportPropertiesDto::idArrayToCollection($data->memberGroupIds)
+                    : null;
                 $dto->billable = $data->billable;
                 $dto->clientIds = $data->clientIds !== null ? ReportPropertiesDto::idArrayToCollection($data->clientIds) : null;
                 $dto->projectIds = $data->projectIds !== null ? ReportPropertiesDto::idArrayToCollection($data->projectIds) : null;
@@ -145,6 +153,7 @@ class ReportPropertiesDto implements Castable
                     'start' => $value->start->toIso8601ZuluString(),
                     'active' => $value->active,
                     'memberIds' => $value->memberIds?->toArray(),
+                    'memberGroupIds' => $value->memberGroupIds?->toArray(),
                     'billable' => $value->billable,
                     'clientIds' => $value->clientIds?->toArray(),
                     'projectIds' => $value->projectIds?->toArray(),
@@ -196,6 +205,14 @@ class ReportPropertiesDto implements Castable
     public function setMemberIds(?array $memberIds): void
     {
         $this->memberIds = $memberIds !== null ? ReportPropertiesDto::idArrayToCollection($memberIds) : null;
+    }
+
+    /**
+     * @param  array<mixed>|null  $memberGroupIds
+     */
+    public function setMemberGroupIds(?array $memberGroupIds): void
+    {
+        $this->memberGroupIds = $memberGroupIds !== null ? ReportPropertiesDto::idArrayToCollection($memberGroupIds) : null;
     }
 
     /**
