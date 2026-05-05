@@ -16,6 +16,7 @@ use App\Http\Controllers\Api\V1\ProjectController;
 use App\Http\Controllers\Api\V1\ProjectMemberController;
 use App\Http\Controllers\Api\V1\Public\ReportController as PublicReportController;
 use App\Http\Controllers\Api\V1\ReportController;
+use App\Http\Controllers\Api\V1\SummaryReportController;
 use App\Http\Controllers\Api\V1\TagController;
 use App\Http\Controllers\Api\V1\TaskController;
 use App\Http\Controllers\Api\V1\TimeEntryController;
@@ -120,6 +121,11 @@ Route::prefix('v1')->name('v1.')->group(static function (): void {
             Route::patch('/time-entries', [TimeEntryController::class, 'updateMultiple'])->name('update-multiple')->middleware('check-organization-blocked');
             Route::delete('/time-entries/{timeEntry}', [TimeEntryController::class, 'destroy'])->name('destroy');
             Route::delete('/time-entries', [TimeEntryController::class, 'destroyMultiple'])->name('destroy-multiple');
+        });
+
+        // Summary report route (Clockify-compatible endpoint shape)
+        Route::name('summary-reports.')->prefix('/workspaces/{organization}')->group(static function (): void {
+            Route::post('/reports/summary', [SummaryReportController::class, 'summary'])->name('summary');
         });
 
         Route::name('users.time-entries.')->group(static function (): void {
