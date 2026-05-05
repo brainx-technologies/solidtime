@@ -8,6 +8,7 @@ use App\Enums\ExportFormat;
 use App\Enums\Role;
 use App\Exceptions\Api\FeatureIsNotAvailableInFreePlanApiException;
 use App\Exceptions\Api\OverlappingTimeEntryApiException;
+use App\Exceptions\Api\PdfExportRowLimitExceededApiException;
 use App\Exceptions\Api\PdfRendererIsNotConfiguredException;
 use App\Exceptions\Api\TimeEntryCanNotBeRestartedApiException;
 use App\Exceptions\Api\TimeEntryStillRunningApiException;
@@ -60,6 +61,8 @@ use Spatie\TemporaryDirectory\TemporaryDirectory;
 
 class TimeEntryController extends Controller
 {
+    private const int PdfExportMaxRows = 3000;
+
     private function assertNoOverlap(Organization $organization, Member $member, \Illuminate\Support\Carbon $start, ?\Illuminate\Support\Carbon $end, ?TimeEntry $exclude = null): void
     {
         if (! $organization->prevent_overlapping_time_entries) {
@@ -238,6 +241,9 @@ class TimeEntryController extends Controller
         if ($format === ExportFormat::PDF && ! $canAccessPremiumFeatures) {
             throw new FeatureIsNotAvailableInFreePlanApiException;
         }
+        if ($format !== ExportFormat::PDF) {
+            set_time_limit(480);
+        }
         $user = $this->user();
         $timezone = $user->timezone;
         $showBillableRate = $this->member($organization)->role !== Role::Employee->value || $organization->employees_can_see_billable_rates;
@@ -262,6 +268,9 @@ class TimeEntryController extends Controller
         } elseif ($format === ExportFormat::PDF) {
             if (config('services.gotenberg.url') === null && ! $debug) {
                 throw new PdfRendererIsNotConfiguredException;
+            }
+            if ($timeEntriesQuery->clone()->count() > self::PdfExportMaxRows) {
+                throw new PdfExportRowLimitExceededApiException;
             }
             $viewFile = file_get_contents(resource_path('views/reports/time-entry-index/pdf.blade.php'));
             if ($viewFile === false) {
@@ -437,6 +446,9 @@ class TimeEntryController extends Controller
         if ($format === ExportFormat::PDF && ! $this->canAccessPremiumFeatures($organization)) {
             throw new FeatureIsNotAvailableInFreePlanApiException;
         }
+        if ($format !== ExportFormat::PDF) {
+            set_time_limit(480);
+        }
         $debug = $request->getDebug();
         $user = $this->user();
         $showBillableRate = $this->member($organization)->role !== Role::Employee->value || $organization->employees_can_see_billable_rates;
@@ -486,6 +498,9 @@ class TimeEntryController extends Controller
         if ($format === ExportFormat::PDF) {
             if (config('services.gotenberg.url') === null && ! $debug) {
                 throw new PdfRendererIsNotConfiguredException;
+            }
+            if ($this->countLeafRows($aggregatedData) > self::PdfExportMaxRows) {
+                throw new PdfExportRowLimitExceededApiException;
             }
             $client = new Client([
                 'auth' => config('services.gotenberg.basic_auth_username') !== null && config('services.gotenberg.basic_auth_password') !== null ? [
@@ -538,7 +553,7 @@ class TimeEntryController extends Controller
                 ->putFileAs($folderPath, new File($tempFolder->path($filenameTemp)), $filename);
         } else {
             Excel::store(
-                new TimeEntriesReportExport($aggregatedData, $format, $currency, $group, $subGroup, $showBillableRate),
+                new TimeEntriesReportExport($aggregatedData, $format, $currency, $group, $subGroup, $showBillableRate, $thirdGroup),
                 $path,
                 config('filesystems.private'),
                 $format->getExportPackageType(),
@@ -552,6 +567,41 @@ class TimeEntryController extends Controller
             'download_url' => Storage::disk(config('filesystems.private'))
                 ->temporaryUrl($path, now()->addMinutes(5)),
         ]);
+    }
+
+    /**
+     * @param  array<string, mixed>  $aggregatedData
+     */
+    private function countLeafRows(array $aggregatedData): int
+    {
+        $groupedData = $aggregatedData['grouped_data'] ?? null;
+        if (! is_array($groupedData)) {
+            return 0;
+        }
+
+        $count = 0;
+        foreach ($groupedData as $group1Entry) {
+            if (! is_array($group1Entry)) {
+                continue;
+            }
+            $group2Data = $group1Entry['grouped_data'] ?? null;
+            if (! is_array($group2Data)) {
+                continue;
+            }
+            foreach ($group2Data as $group2Entry) {
+                if (! is_array($group2Entry)) {
+                    continue;
+                }
+                $group3Data = $group2Entry['grouped_data'] ?? null;
+                if (is_array($group3Data) && count($group3Data) > 0) {
+                    $count += count($group3Data);
+                } else {
+                    $count++;
+                }
+            }
+        }
+
+        return $count;
     }
 
     /**

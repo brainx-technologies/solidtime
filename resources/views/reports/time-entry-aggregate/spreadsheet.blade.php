@@ -5,6 +5,9 @@
 @use('Carbon\CarbonInterval')
 @use('App\Enums\TimeEntryAggregationType')
 @inject('interval', 'App\Service\IntervalService')
+@php
+    $hasThirdGroup = isset($thirdGroup) && $thirdGroup !== null;
+@endphp
 <table>
     <thead>
     <tr>
@@ -14,6 +17,11 @@
         <th style="border: 1px solid black; font-weight: bold;" data-type="{{ DataType::TYPE_STRING }}">
             {{ $subGroup->description() }}
         </th>
+        @if($hasThirdGroup)
+        <th style="border: 1px solid black; font-weight: bold;" data-type="{{ DataType::TYPE_STRING }}">
+            {{ $thirdGroup->description() }}
+        </th>
+        @endif
         <th style="border: 1px solid black; font-weight: bold;" data-type="{{ DataType::TYPE_STRING }}">
             Duration
         </th>
@@ -34,7 +42,12 @@
     @foreach($data['grouped_data'] as $group1Entry)
         @foreach($group1Entry['grouped_data'] as $group2Entry)
             @php
-                $duration = CarbonInterval::seconds($group2Entry['seconds']);
+                $group3Entries = $hasThirdGroup ? ($group2Entry['grouped_data'] ?? []) : [$group2Entry];
+            @endphp
+            @foreach($group3Entries as $group3Entry)
+            @php
+                $leafEntry = $hasThirdGroup ? $group3Entry : $group2Entry;
+                $duration = CarbonInterval::seconds($leafEntry['seconds']);
             @endphp
             <tr>
                 @if($exportFormat === ExportFormat::ODS || $exportFormat === ExportFormat::CSV)
@@ -55,6 +68,17 @@
                         <td style="border: 1px solid black;" data-type="{{ DataType::TYPE_STRING }}">
                             {{ $group2Entry['description'] ?? $group2Entry['key'] ?? '-' }}
                         </td>
+                    @endif
+                    @if($hasThirdGroup)
+                        @if ($thirdGroup === TimeEntryAggregationType::Billable)
+                            <td style="border: 1px solid black;" data-type="{{ DataType::TYPE_STRING }}">
+                                {{ $leafEntry['key'] ? 'Yes' : 'No' }}
+                            </td>
+                        @else
+                            <td style="border: 1px solid black;" data-type="{{ DataType::TYPE_STRING }}">
+                                {{ $leafEntry['description'] ?? $leafEntry['key'] ?? '-' }}
+                            </td>
+                        @endif
                     @endif
                     <td style="border: 1px solid black;" data-type="{{ DataType::TYPE_STRING }}">
                         {{ $interval->format($duration) }}
@@ -86,6 +110,17 @@
                             {{ $group2Entry['description'] ?? $group2Entry['key'] ?? '-' }}
                         </td>
                     @endif
+                    @if($hasThirdGroup)
+                        @if ($thirdGroup === TimeEntryAggregationType::Billable)
+                            <td style="border: 1px solid black;" data-type="{{ DataType::TYPE_STRING }}">
+                                {{ $leafEntry['key'] ? 'Yes' : 'No' }}
+                            </td>
+                        @else
+                            <td style="border: 1px solid black;" data-type="{{ DataType::TYPE_STRING }}">
+                                {{ $leafEntry['description'] ?? $leafEntry['key'] ?? '-' }}
+                            </td>
+                        @endif
+                    @endif
                     <td style="border: 1px solid black;" data-type="{{ DataType::TYPE_NUMERIC }}"
                         data-format="[hh]:mm:ss">
                         {{ $duration->totalDays }}
@@ -104,18 +139,25 @@
             </tr>
             @php
                 ++$counter;
-                $totalDuration += $group2Entry['seconds'];
+                $totalDuration += $leafEntry['seconds'];
                 if ($showBillableRate) {
-                    $totalCost += $group2Entry['cost'];
+                    $totalCost += $leafEntry['cost'];
                 }
             @endphp
+            @endforeach
         @endforeach
     @endforeach
     @php
         $totalDurationInterval = CarbonInterval::seconds($totalDuration);
+        $durationColumn = $hasThirdGroup ? 'D' : 'C';
+        $decimalColumn = $hasThirdGroup ? 'E' : 'D';
+        $amountColumn = $hasThirdGroup ? 'F' : 'E';
     @endphp
     <tr style="border: 1px solid black;">
         <td style="border: 1px solid black; font-weight: bold;" data-type="{{ DataType::TYPE_STRING }}"></td>
+        @if($hasThirdGroup)
+        <td style="border: 1px solid black; font-weight: bold;" data-type="{{ DataType::TYPE_STRING }}"></td>
+        @endif
         <td style="border: 1px solid black; font-weight: bold;" data-type="{{ DataType::TYPE_STRING }}">
             Total
         </td>
@@ -135,7 +177,7 @@
             <td style="border: 1px solid black; font-weight: bold;" data-type="{{ DataType::TYPE_FORMULA }}"
                 data-format="[hh]:mm:ss">
                 @if($counter > 1)
-                    =SUM(C2:C{{ $counter }})
+                    =SUM({{ $durationColumn }}2:{{ $durationColumn }}{{ $counter }})
                 @else
                     =0
                 @endif
@@ -143,19 +185,21 @@
             <td style="border: 1px solid black; font-weight: bold;" data-type="{{ DataType::TYPE_FORMULA }}"
                 data-format="{{ NumberFormat::FORMAT_NUMBER_00 }}">
                 @if($counter > 1)
-                    =SUM(D2:D{{ $counter }})
+                    =SUM({{ $decimalColumn }}2:{{ $decimalColumn }}{{ $counter }})
                 @else
                     =0
                 @endif
             </td>
-            <td style="border: 1px solid black; font-weight: bold;" data-type="{{ DataType::TYPE_FORMULA }}"
-                data-format="{{ NumberFormat::FORMAT_NUMBER_COMMA_SEPARATED1 }}">
-                @if($counter > 1)
-                    =SUM(E2:E{{ $counter }})
-                @else
-                    =0
-                @endif
-            </td>
+            @if($showBillableRate)
+                <td style="border: 1px solid black; font-weight: bold;" data-type="{{ DataType::TYPE_FORMULA }}"
+                    data-format="{{ NumberFormat::FORMAT_NUMBER_COMMA_SEPARATED1 }}">
+                    @if($counter > 1)
+                        =SUM({{ $amountColumn }}2:{{ $amountColumn }}{{ $counter }})
+                    @else
+                        =0
+                    @endif
+                </td>
+            @endif
         @endif
     </tr>
     </tbody>

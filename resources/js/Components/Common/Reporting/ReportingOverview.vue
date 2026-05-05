@@ -54,7 +54,8 @@ import { mapGroupingTreeToTableRows, type GroupingTreeNode } from '@/utils/repor
 
 type TimeEntryRoundingType = 'up' | 'down' | 'nearest';
 
-const { handleApiRequestNotifications } = useNotificationsStore();
+const { handleApiRequestNotifications, addNotification } = useNotificationsStore();
+const PDF_EXPORT_MAX_ROWS = 3000;
 
 const startDate = useSessionStorage<string>(
     'reporting-start-date',
@@ -255,6 +256,14 @@ function triggerExport(format: ExportFormat) {
         showPremiumModal.value = true;
         return;
     }
+    if (format === 'pdf' && countLeafRows(aggregatedTableTimeEntries.value) > PDF_EXPORT_MAX_ROWS) {
+        addNotification(
+            'error',
+            'Export failed',
+            'PDF export supports up to 3000 rows. Please reduce filters/time range or use CSV/XLSX.'
+        );
+        return;
+    }
     exportLoading.value = true;
     downloadExport(format).finally(() => {
         exportLoading.value = false;
@@ -308,6 +317,31 @@ const tableData = computed(() => {
         )
     );
 });
+
+function countLeafRows(data: AggregatedTimeEntries | undefined): number {
+    const groupedData = data?.grouped_data;
+    if (!Array.isArray(groupedData) || groupedData.length === 0) {
+        return 0;
+    }
+
+    let count = 0;
+    for (const group1Entry of groupedData) {
+        const group2Data = (group1Entry as { grouped_data?: unknown }).grouped_data;
+        if (!Array.isArray(group2Data) || group2Data.length === 0) {
+            continue;
+        }
+        for (const group2Entry of group2Data) {
+            const group3Data = (group2Entry as { grouped_data?: unknown }).grouped_data;
+            if (Array.isArray(group3Data) && group3Data.length > 0) {
+                count += group3Data.length;
+            } else {
+                count += 1;
+            }
+        }
+    }
+
+    return count;
+}
 </script>
 
 <template>

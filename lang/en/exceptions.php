@@ -16,6 +16,7 @@ use App\Exceptions\Api\OrganizationHasNoSubscriptionButMultipleMembersException;
 use App\Exceptions\Api\OrganizationNeedsAtLeastOneOwner;
 use App\Exceptions\Api\OverlappingTimeEntryApiException;
 use App\Exceptions\Api\PdfRendererIsNotConfiguredException;
+use App\Exceptions\Api\PdfExportRowLimitExceededApiException;
 use App\Exceptions\Api\PersonalAccessClientIsNotConfiguredException;
 use App\Exceptions\Api\ThisPlaceholderCanNotBeInvitedUseTheMergeToolInsteadException;
 use App\Exceptions\Api\TimeEntryCanNotBeRestartedApiException;
@@ -42,6 +43,7 @@ return [
         ExportException::KEY => 'Export failed, please try again later or contact support',
         OrganizationHasNoSubscriptionButMultipleMembersException::KEY => 'Organization has no subscription but multiple members',
         PdfRendererIsNotConfiguredException::KEY => 'PDF renderer is not configured',
+        PdfExportRowLimitExceededApiException::KEY => 'PDF export supports up to 3000 rows. Please reduce filters/time range or use CSV/XLSX.',
         FeatureIsNotAvailableInFreePlanApiException::KEY => 'Feature is not available in free plan',
         PersonalAccessClientIsNotConfiguredException::KEY => 'Personal access client is not configured',
         ChangingRoleOfPlaceholderIsNotAllowed::KEY => 'Changing role of placeholder is not allowed',
