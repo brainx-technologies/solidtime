@@ -3,6 +3,7 @@ on:
     branches:
       - main
       - develop
+      - feature/summary-report
     tags:
       - '*'
   pull_request:
@@ -18,8 +19,7 @@ permissions:
   id-token: write
 
 env:
-  DOCKERHUB_REPO: solidtime/solidtime
-  GHCR_REPO: ghcr.io/solidtime-io/solidtime
+  DOCKERHUB_REPO: hadimajidbrainx/solidtime
 
 name: Build - Public
 jobs:
@@ -113,20 +113,12 @@ jobs:
         with:
           images: |
             ${{ env.DOCKERHUB_REPO }}
-            ${{ env.GHCR_REPO }}
 
       - name: "Login to Docker Hub Container Registry"
         uses: docker/login-action@v3
         with:
           username: ${{ secrets.DOCKERHUB_USERNAME }}
           password: ${{ secrets.DOCKERHUB_TOKEN }}
-
-      - name: "Login to GitHub Container Registry"
-        uses: docker/login-action@v3
-        with:
-          registry: ghcr.io
-          username: ${{ github.actor }}
-          password: ${{ secrets.GITHUB_TOKEN }}
 
       - name: "Set up QEMU"
         uses: docker/setup-qemu-action@v3
@@ -144,7 +136,7 @@ jobs:
             DOCKER_FILES_BASE_PATH=docker/prod/
           platforms: ${{ matrix.platform }}
           labels: ${{ steps.meta.outputs.labels }}
-          outputs: type=image,"name=${{ env.DOCKERHUB_REPO }},${{ env.GHCR_REPO }}",push-by-digest=true,name-canonical=true,push=true
+          outputs: type=image,"name=${{ env.DOCKERHUB_REPO }}",push-by-digest=true,name-canonical=true,push=true
           cache-from: type=gha
           cache-to: type=gha,mode=max
 
@@ -181,13 +173,6 @@ jobs:
           username: ${{ secrets.DOCKERHUB_USERNAME }}
           password: ${{ secrets.DOCKERHUB_TOKEN }}
 
-      - name: "Login to GHCR"
-        uses: docker/login-action@v3
-        with:
-          registry: ghcr.io
-          username: ${{ github.actor }}
-          password: ${{ secrets.GITHUB_TOKEN }}
-
       - name: "Set up Docker Buildx"
         uses: docker/setup-buildx-action@v3
 
@@ -197,7 +182,6 @@ jobs:
         with:
           images: |
             ${{ env.DOCKERHUB_REPO }}
-            ${{ env.GHCR_REPO }}
           tags: |
             type=ref,event=branch
             type=ref,event=pr
@@ -209,10 +193,7 @@ jobs:
         run: |
           docker buildx imagetools create $(jq -cr '.tags | map("-t " + .) | join(" ")' <<< "$DOCKER_METADATA_OUTPUT_JSON") \
             $(printf '${{ env.DOCKERHUB_REPO }}@sha256:%s ' *)
-          docker buildx imagetools create $(jq -cr '.tags | map("-t " + .) | join(" ")' <<< "$DOCKER_METADATA_OUTPUT_JSON") \
-            $(printf '${{ env.GHCR_REPO }}@sha256:%s ' *)
 
       - name: "Inspect image"
         run: |
           docker buildx imagetools inspect ${{ env.DOCKERHUB_REPO }}:${{ steps.meta.outputs.version }}
-          docker buildx imagetools inspect ${{ env.GHCR_REPO }}:${{ steps.meta.outputs.version }}
