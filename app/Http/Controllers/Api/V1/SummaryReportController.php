@@ -105,9 +105,12 @@ class SummaryReportController extends Controller
             $children = $node['grouped_data'];
             $nextType = isset($node['grouped_type']) && is_string($node['grouped_type']) ? TimeEntryAggregationType::from($node['grouped_type']) : null;
 
+            $key = $node['key'] ?? null;
+            $description = $node['description'] ?? null;
+
             $result[] = [
-                '_id' => $this->normalizeNodeId($node['key'] ?? null, $nodeType),
-                'name' => $node['description'] ?? $this->normalizeNodeName($node['key'] ?? null, $nodeType),
+                '_id' => $this->normalizeNodeId($key, $nodeType),
+                'name' => $this->normalizeNodeName($key, $description, $nodeType),
                 'duration' => $node['seconds'],
                 'amount' => $node['cost'],
                 'children' => $this->transformNodes($children, $nextType),
@@ -119,6 +122,18 @@ class SummaryReportController extends Controller
 
     private function normalizeNodeId(?string $key, ?TimeEntryAggregationType $nodeType): string
     {
+        // Billable carries '0'/'1' as the key; expose Clockify-style stable identifiers.
+        if ($nodeType === TimeEntryAggregationType::Billable) {
+            if ($key === '1') {
+                return 'BILLABLE';
+            }
+            if ($key === '0') {
+                return 'NON_BILLABLE';
+            }
+
+            return 'NO_BILLABLE';
+        }
+
         if ($key !== null && $key !== '') {
             return $key;
         }
@@ -128,14 +143,28 @@ class SummaryReportController extends Controller
             TimeEntryAggregationType::Project => 'NO_PROJECT',
             TimeEntryAggregationType::Client => 'NO_CLIENT',
             TimeEntryAggregationType::Tag => 'NO_TAG',
+            TimeEntryAggregationType::User => 'NO_USER',
             TimeEntryAggregationType::Description => 'NO_DESCRIPTION',
             default => 'NO_VALUE',
         };
     }
 
-    private function normalizeNodeName(?string $key, ?TimeEntryAggregationType $nodeType): string
+    private function normalizeNodeName(?string $key, ?string $description, ?TimeEntryAggregationType $nodeType): string
     {
-        if ($key !== null && $key !== '') {
+        if ($nodeType === TimeEntryAggregationType::Billable) {
+            return match ($key) {
+                '1' => 'Billable',
+                '0' => 'Non-billable',
+                default => 'Without billable status',
+            };
+        }
+
+        if ($description !== null && $description !== '') {
+            return $description;
+        }
+
+        // For ID-keyed groupings the bare UUID is not a useful display name.
+        if ($key !== null && $key !== '' && $this->isHumanReadableKey($nodeType)) {
             return $key;
         }
 
@@ -144,8 +173,25 @@ class SummaryReportController extends Controller
             TimeEntryAggregationType::Project => 'No project',
             TimeEntryAggregationType::Client => 'No client',
             TimeEntryAggregationType::Tag => 'No tag',
+            TimeEntryAggregationType::User => 'No user',
             TimeEntryAggregationType::Description => 'No description',
             default => 'No value',
+        };
+    }
+
+    /**
+     * Whether the raw key value is suitable as a fallback display name when no description was loaded.
+     * Time-bucket keys (e.g. '2024-01-01') and free-text keys are; UUIDs are not.
+     */
+    private function isHumanReadableKey(?TimeEntryAggregationType $nodeType): bool
+    {
+        return match ($nodeType) {
+            TimeEntryAggregationType::Day,
+            TimeEntryAggregationType::Week,
+            TimeEntryAggregationType::Month,
+            TimeEntryAggregationType::Year,
+            TimeEntryAggregationType::Description => true,
+            default => false,
         };
     }
 }

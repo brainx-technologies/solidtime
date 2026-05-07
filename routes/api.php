@@ -63,7 +63,7 @@ Route::prefix('v1')->name('v1.')->group(static function (): void {
             Route::get('/member-groups', [MemberGroupController::class, 'index'])->name('index');
             Route::post('/member-groups', [MemberGroupController::class, 'store'])->name('store')->middleware('check-organization-blocked');
             Route::put('/member-groups/{memberGroup}', [MemberGroupController::class, 'update'])->name('update')->middleware('check-organization-blocked');
-            Route::delete('/member-groups/{memberGroup}', [MemberGroupController::class, 'destroy'])->name('destroy');
+            Route::delete('/member-groups/{memberGroup}', [MemberGroupController::class, 'destroy'])->name('destroy')->middleware('check-organization-blocked');
             Route::put('/member-groups/{memberGroup}/members', [MemberGroupController::class, 'syncMembers'])->name('sync-members')->middleware('check-organization-blocked');
         });
 

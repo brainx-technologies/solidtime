@@ -106,21 +106,17 @@ watch(
     { immediate: true }
 );
 
-watch(
-    [group, subGroup],
-    () => {
-        if (thirdGroup.value === null) {
-            return;
-        }
-        if (thirdGroup.value === group.value || thirdGroup.value === subGroup.value) {
-            const fallbackOption = groupByOptions.find(
-                (el) => el.value !== group.value && el.value !== subGroup.value
-            );
-            thirdGroup.value = fallbackOption?.value ?? null;
-        }
-    },
-    { immediate: true }
-);
+watch([group, subGroup], () => {
+    if (thirdGroup.value === null) {
+        return;
+    }
+    if (thirdGroup.value === group.value || thirdGroup.value === subGroup.value) {
+        const fallbackOption = groupByOptions.find(
+            (el) => el.value !== group.value && el.value !== subGroup.value
+        );
+        thirdGroup.value = fallbackOption?.value ?? null;
+    }
+});
 
 function getOptimalGroupingOption(start: string, end: string): 'day' | 'week' | 'month' {
     const diffInDays = getDayJsInstance()(end).diff(getDayJsInstance()(start), 'd');
@@ -328,6 +324,7 @@ function countLeafRows(data: AggregatedTimeEntries | undefined): number {
     for (const group1Entry of groupedData) {
         const group2Data = (group1Entry as { grouped_data?: unknown }).grouped_data;
         if (!Array.isArray(group2Data) || group2Data.length === 0) {
+            count += 1;
             continue;
         }
         for (const group2Entry of group2Data) {

@@ -28,8 +28,8 @@ class MemberGroupResource extends BaseResource
             'name' => $this->resource->name,
             /** @var string $organization_id ID of the organization the group belongs to */
             'organization_id' => $this->resource->organization_id,
-            /** @var int $members_count Number of members assigned to this group */
-            'members_count' => (int) ($this->resource->members_count ?? $this->resource->members()->count()),
+            /** @var int $members_count Number of members assigned to this group; callers must eager-load via withCount('members') */
+            'members_count' => (int) ($this->resource->members_count ?? 0),
             /** @var array<int, array{id: string, user_id: string, name: string}>|null $members Members assigned to this group, only included when explicitly loaded */
             'members' => $this->whenLoaded('members', function () {
                 return $this->resource->members->map(function (Member $member): array {

@@ -15,6 +15,7 @@ use App\Models\Organization;
 use App\Models\Report;
 use App\Service\Dto\ReportPropertiesDto;
 use App\Service\ReportService;
+use App\Service\TimeEntryMemberFilterResolver;
 use App\Service\TimezoneService;
 use Illuminate\Auth\Access\AuthorizationException;
 use Illuminate\Http\JsonResponse;
@@ -92,8 +93,18 @@ class ReportController extends Controller
         $properties->start = $request->getPropertyStart();
         $properties->end = $request->getPropertyEnd();
         $properties->active = $request->getPropertyActive();
-        $properties->setMemberIds($request->input('properties.member_ids', null));
-        $properties->setMemberGroupIds($request->input('properties.member_group_ids', null));
+        // Snapshot the union of explicit member_ids and members in the selected groups so a
+        // saved/shared report shows the same data even if group membership later changes.
+        // The original member_group_ids selection is retained for display/edit on the UI.
+        $rawMemberIds = $request->input('properties.member_ids', null);
+        $rawMemberGroupIds = $request->input('properties.member_group_ids', null);
+        $resolvedMemberIds = TimeEntryMemberFilterResolver::resolveForOrganization(
+            $organization,
+            is_array($rawMemberIds) ? array_values(array_filter($rawMemberIds, 'is_string')) : null,
+            is_array($rawMemberGroupIds) ? array_values(array_filter($rawMemberGroupIds, 'is_string')) : null,
+        );
+        $properties->setMemberIds($resolvedMemberIds);
+        $properties->setMemberGroupIds($rawMemberGroupIds);
         $properties->billable = $request->getPropertyBillable();
         $properties->setClientIds($request->input('properties.client_ids', null));
         $properties->setProjectIds($request->input('properties.project_ids', null));

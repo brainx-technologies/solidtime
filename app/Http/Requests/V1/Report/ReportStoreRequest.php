@@ -164,6 +164,16 @@ class ReportStoreRequest extends BaseFormRequest
             'properties.third_group' => [
                 'nullable',
                 Rule::enum(TimeEntryAggregationType::class),
+                function (string $attribute, mixed $value, \Closure $fail): void {
+                    $values = array_filter([
+                        $this->input('properties.group'),
+                        $this->input('properties.sub_group'),
+                        $this->input('properties.third_group'),
+                    ], static fn (mixed $v): bool => is_string($v) && $v !== '');
+                    if (count(array_keys($values, TimeEntryAggregationType::Tag->value, true)) > 1) {
+                        $fail('Tag grouping can only be used at one level at a time.');
+                    }
+                },
             ],
             'properties.history_group' => [
                 'required',

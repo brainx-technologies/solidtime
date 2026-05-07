@@ -570,6 +570,10 @@ class TimeEntryController extends Controller
     }
 
     /**
+     * Count the number of leaf rows that will be rendered for an aggregated PDF export.
+     * A node is treated as a leaf when it has no children of its own, so this works for
+     * one-, two-, and three-level groupings without silently returning 0 for single-level.
+     *
      * @param  array<string, mixed>  $aggregatedData
      */
     private function countLeafRows(array $aggregatedData): int
@@ -585,7 +589,9 @@ class TimeEntryController extends Controller
                 continue;
             }
             $group2Data = $group1Entry['grouped_data'] ?? null;
-            if (! is_array($group2Data)) {
+            if (! is_array($group2Data) || count($group2Data) === 0) {
+                $count++;
+
                 continue;
             }
             foreach ($group2Data as $group2Entry) {

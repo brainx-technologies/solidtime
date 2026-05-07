@@ -15,6 +15,7 @@ use App\Models\MemberGroup;
 use App\Models\Organization;
 use Illuminate\Auth\Access\AuthorizationException;
 use Illuminate\Http\JsonResponse;
+use Illuminate\Support\Facades\DB;
 
 class MemberGroupController extends Controller
 {
@@ -64,6 +65,7 @@ class MemberGroupController extends Controller
         $memberGroup->organization()->associate($organization);
         $memberGroup->save();
 
+        $memberGroup->load('members.user');
         $memberGroup->loadCount('members');
 
         return new MemberGroupResource($memberGroup);
@@ -83,6 +85,7 @@ class MemberGroupController extends Controller
         $memberGroup->name = (string) $request->input('name');
         $memberGroup->save();
 
+        $memberGroup->load('members.user');
         $memberGroup->loadCount('members');
 
         return new MemberGroupResource($memberGroup);
@@ -130,7 +133,10 @@ class MemberGroupController extends Controller
             $validIds = [];
         }
 
-        $memberGroup->members()->sync($validIds);
+        DB::transaction(function () use ($memberGroup, $validIds): void {
+            $memberGroup->members()->sync($validIds);
+        });
+
         $memberGroup->load('members.user');
         $memberGroup->loadCount('members');
 

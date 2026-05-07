@@ -7,13 +7,27 @@ namespace App\Http\Requests\V1\Report;
 use App\Enums\TimeEntryAggregationType;
 use App\Enums\Weekday;
 use App\Http\Requests\V1\BaseFormRequest;
+use App\Models\Client;
+use App\Models\Member;
+use App\Models\Organization;
+use App\Models\Project;
+use App\Models\Tag;
+use App\Models\Task;
+use Illuminate\Contracts\Validation\ValidationRule;
+use Illuminate\Database\Eloquent\Builder;
 use Illuminate\Support\Carbon;
 use Illuminate\Validation\Rule;
+use Korridor\LaravelModelValidationRules\Rules\ExistsEloquent;
 
+/**
+ * @property Organization $organization Organization from route binding
+ */
 class SummaryReportRequest extends BaseFormRequest
 {
+    private const int MaxIdsPerArray = 1000;
+
     /**
-     * @return array<string, array<int, string|\Illuminate\Contracts\Validation\ValidationRule>>
+     * @return array<string, array<string|ValidationRule|\Illuminate\Contracts\Validation\Rule|\Closure>>
      */
     public function rules(): array
     {
@@ -27,7 +41,7 @@ class SummaryReportRequest extends BaseFormRequest
                 'required',
                 'string',
                 'date',
-                'after:dateRangeStart',
+                'after_or_equal:dateRangeStart',
             ],
             'billable' => [
                 'nullable',
@@ -49,9 +63,11 @@ class SummaryReportRequest extends BaseFormRequest
             'summaryFilter.groups' => [
                 'nullable',
                 'array',
+                'max:3',
             ],
             'summaryFilter.groups.*' => [
                 'string',
+                'distinct',
                 Rule::in(['DAY', 'WEEK', 'MONTH', 'YEAR', 'USER', 'PROJECT', 'TASK', 'CLIENT', 'BILLABLE', 'DESCRIPTION', 'TAG']),
             ],
             'users' => [
@@ -61,9 +77,15 @@ class SummaryReportRequest extends BaseFormRequest
             'users.ids' => [
                 'nullable',
                 'array',
+                'max:'.self::MaxIdsPerArray,
             ],
             'users.ids.*' => [
                 'string',
+                'distinct',
+                ExistsEloquent::make(Member::class, null, function (Builder $builder): Builder {
+                    /** @var Builder<Member> $builder */
+                    return $builder->whereBelongsTo($this->organization, 'organization');
+                })->uuid(),
             ],
             'projects' => [
                 'nullable',
@@ -72,9 +94,15 @@ class SummaryReportRequest extends BaseFormRequest
             'projects.ids' => [
                 'nullable',
                 'array',
+                'max:'.self::MaxIdsPerArray,
             ],
             'projects.ids.*' => [
                 'string',
+                'distinct',
+                ExistsEloquent::make(Project::class, null, function (Builder $builder): Builder {
+                    /** @var Builder<Project> $builder */
+                    return $builder->whereBelongsTo($this->organization, 'organization');
+                })->uuid(),
             ],
             'clients' => [
                 'nullable',
@@ -83,9 +111,15 @@ class SummaryReportRequest extends BaseFormRequest
             'clients.ids' => [
                 'nullable',
                 'array',
+                'max:'.self::MaxIdsPerArray,
             ],
             'clients.ids.*' => [
                 'string',
+                'distinct',
+                ExistsEloquent::make(Client::class, null, function (Builder $builder): Builder {
+                    /** @var Builder<Client> $builder */
+                    return $builder->whereBelongsTo($this->organization, 'organization');
+                })->uuid(),
             ],
             'tags' => [
                 'nullable',
@@ -94,9 +128,15 @@ class SummaryReportRequest extends BaseFormRequest
             'tags.ids' => [
                 'nullable',
                 'array',
+                'max:'.self::MaxIdsPerArray,
             ],
             'tags.ids.*' => [
                 'string',
+                'distinct',
+                ExistsEloquent::make(Tag::class, null, function (Builder $builder): Builder {
+                    /** @var Builder<Tag> $builder */
+                    return $builder->whereBelongsTo($this->organization, 'organization');
+                })->uuid(),
             ],
             'tasks' => [
                 'nullable',
@@ -105,9 +145,15 @@ class SummaryReportRequest extends BaseFormRequest
             'tasks.ids' => [
                 'nullable',
                 'array',
+                'max:'.self::MaxIdsPerArray,
             ],
             'tasks.ids.*' => [
                 'string',
+                'distinct',
+                ExistsEloquent::make(Task::class, null, function (Builder $builder): Builder {
+                    /** @var Builder<Task> $builder */
+                    return $builder->whereBelongsTo($this->organization, 'organization');
+                })->uuid(),
             ],
         ];
     }

@@ -29,6 +29,7 @@ class MemberGroupSyncMembersRequest extends BaseFormRequest
             'member_ids' => [
                 'present',
                 'array',
+                'max:1000',
             ],
             'member_ids.*' => [
                 'string',

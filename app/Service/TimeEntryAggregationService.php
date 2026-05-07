@@ -46,6 +46,22 @@ class TimeEntryAggregationService
      */
     public function getAggregatedTimeEntries(Builder $timeEntriesQuery, ?TimeEntryAggregationType $group1Type, ?TimeEntryAggregationType $group2Type, string $timezone, Weekday $startOfWeek, bool $fillGapsInTimeGroups, ?Carbon $start, ?Carbon $end, bool $showBillableRate, ?TimeEntryRoundingType $roundingType, ?int $roundingMinutes, ?TimeEntryAggregationType $group3Type = null): array
     {
+        if ($group3Type !== null && ($group1Type === null || $group2Type === null)) {
+            throw new \InvalidArgumentException('Third-level grouping requires both group1 and group2 to be set');
+        }
+        $tagGroupingLevels = 0;
+        if ($group1Type === TimeEntryAggregationType::Tag) {
+            $tagGroupingLevels++;
+        }
+        if ($group2Type === TimeEntryAggregationType::Tag) {
+            $tagGroupingLevels++;
+        }
+        if ($group3Type === TimeEntryAggregationType::Tag) {
+            $tagGroupingLevels++;
+        }
+        if ($tagGroupingLevels > 1) {
+            throw new \InvalidArgumentException('Tag grouping can only be used at one level at a time');
+        }
         $fillGapsInTimeGroupsIsPossible = $fillGapsInTimeGroups && $start !== null && $end !== null;
         /** @var Builder<TimeEntry> $baseTotalsQuery */
         $baseTotalsQuery = $timeEntriesQuery->clone();
@@ -358,7 +374,7 @@ class TimeEntryAggregationService
         $descriptorMap = [];
         if ($type === TimeEntryAggregationType::Client) {
             $clients = Client::query()
-                ->whereIn('id', $keys, 'and', false)
+                ->whereIn('id', $keys)
                 ->select('id', 'name')
                 ->get();
             foreach ($clients as $client) {
@@ -369,7 +385,7 @@ class TimeEntryAggregationService
             }
         } elseif ($type === TimeEntryAggregationType::User) {
             $users = User::query()
-                ->whereIn('id', $keys, 'and', false)
+                ->whereIn('id', $keys)
                 ->select('id', 'name')
                 ->get();
             foreach ($users as $user) {
@@ -380,7 +396,7 @@ class TimeEntryAggregationService
             }
         } elseif ($type === TimeEntryAggregationType::Project) {
             $projects = Project::query()
-                ->whereIn('id', $keys, 'and', false)
+                ->whereIn('id', $keys)
                 ->select('id', 'name', 'color')
                 ->get();
             foreach ($projects as $project) {
@@ -391,7 +407,7 @@ class TimeEntryAggregationService
             }
         } elseif ($type === TimeEntryAggregationType::Task) {
             $tasks = Task::query()
-                ->whereIn('id', $keys, 'and', false)
+                ->whereIn('id', $keys)
                 ->select('id', 'name')
                 ->get();
             foreach ($tasks as $task) {
@@ -416,7 +432,7 @@ class TimeEntryAggregationService
             }
         } elseif ($type === TimeEntryAggregationType::Tag) {
             $tags = Tag::query()
-                ->whereIn('id', $keys, 'and', false)
+                ->whereIn('id', $keys)
                 ->select('id', 'name')
                 ->get();
             foreach ($tags as $tag) {
