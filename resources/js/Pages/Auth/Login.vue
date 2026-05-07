@@ -58,6 +58,12 @@ const page = usePage<{
             {{ page.props.flash?.message }}
         </div>
 
+        <a
+            class="w-full mb-4 border border-border bg-surface rounded-lg h-10 inline-flex items-center justify-center text-sm font-medium text-text-primary hover:opacity-90 transition"
+            href="/auth/google/redirect">
+            Continue with Google
+        </a>
+
         <form @submit.prevent="submit">
             <Field>
                 <FieldLabel for="email">Email</FieldLabel>

@@ -3,6 +3,7 @@
 declare(strict_types=1);
 
 use App\Http\Controllers\Web\DashboardController;
+use App\Http\Controllers\Web\GoogleAuthController;
 use App\Http\Controllers\Web\HomeController;
 use Illuminate\Support\Facades\Route;
 use Inertia\Inertia;
@@ -24,6 +25,11 @@ Route::get('/', [HomeController::class, 'index']);
 Route::get('/shared-report', function () {
     return Inertia::render('SharedReport');
 })->name('shared-report');
+
+Route::middleware('guest')->group(function (): void {
+    Route::get('/auth/google/redirect', [GoogleAuthController::class, 'redirect'])->name('auth.google.redirect');
+    Route::get('/auth/google/callback', [GoogleAuthController::class, 'callback'])->name('auth.google.callback');
+});
 
 Route::middleware([
     'auth:web',
