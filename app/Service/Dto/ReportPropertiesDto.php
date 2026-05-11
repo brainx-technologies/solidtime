@@ -22,6 +22,8 @@ class ReportPropertiesDto implements Castable
 
     public TimeEntryAggregationType $subGroup;
 
+    public ?TimeEntryAggregationType $thirdGroup = null;
+
     public TimeEntryAggregationTypeInterval $historyGroup;
 
     public Weekday $weekStart;
@@ -38,6 +40,11 @@ class ReportPropertiesDto implements Castable
      * @var Collection<int, string>|null
      */
     public ?Collection $memberIds = null;
+
+    /**
+     * @var Collection<int, string>|null
+     */
+    public ?Collection $memberGroupIds = null;
 
     public ?bool $billable = null;
 
@@ -111,6 +118,9 @@ class ReportPropertiesDto implements Castable
                 $dto->start = $data->start !== null ? Carbon::createFromFormat('Y-m-d\TH:i:s\Z', $data->start) : null;
                 $dto->active = $data->active;
                 $dto->memberIds = $data->memberIds !== null ? ReportPropertiesDto::idArrayToCollection($data->memberIds) : null;
+                $dto->memberGroupIds = isset($data->memberGroupIds) && $data->memberGroupIds !== null
+                    ? ReportPropertiesDto::idArrayToCollection($data->memberGroupIds)
+                    : null;
                 $dto->billable = $data->billable;
                 $dto->clientIds = $data->clientIds !== null ? ReportPropertiesDto::idArrayToCollection($data->clientIds) : null;
                 $dto->projectIds = $data->projectIds !== null ? ReportPropertiesDto::idArrayToCollection($data->projectIds) : null;
@@ -118,6 +128,9 @@ class ReportPropertiesDto implements Castable
                 $dto->taskIds = $data->taskIds ? ReportPropertiesDto::idArrayToCollection($data->taskIds) : null;
                 $dto->group = TimeEntryAggregationType::from($data->group);
                 $dto->subGroup = TimeEntryAggregationType::from($data->subGroup);
+                $dto->thirdGroup = isset($data->thirdGroup) && $data->thirdGroup !== null
+                    ? TimeEntryAggregationType::from($data->thirdGroup)
+                    : null;
                 $dto->historyGroup = TimeEntryAggregationTypeInterval::from($data->historyGroup);
                 $dto->weekStart = Weekday::from($data->weekStart);
                 $dto->timezone = $data->timezone;
@@ -140,6 +153,7 @@ class ReportPropertiesDto implements Castable
                     'start' => $value->start->toIso8601ZuluString(),
                     'active' => $value->active,
                     'memberIds' => $value->memberIds?->toArray(),
+                    'memberGroupIds' => $value->memberGroupIds?->toArray(),
                     'billable' => $value->billable,
                     'clientIds' => $value->clientIds?->toArray(),
                     'projectIds' => $value->projectIds?->toArray(),
@@ -147,6 +161,7 @@ class ReportPropertiesDto implements Castable
                     'taskIds' => $value->taskIds?->toArray(),
                     'group' => $value->group->value,
                     'subGroup' => $value->subGroup->value,
+                    'thirdGroup' => $value->thirdGroup?->value,
                     'historyGroup' => $value->historyGroup->value,
                     'weekStart' => $value->weekStart->value,
                     'timezone' => $value->timezone,
@@ -190,6 +205,14 @@ class ReportPropertiesDto implements Castable
     public function setMemberIds(?array $memberIds): void
     {
         $this->memberIds = $memberIds !== null ? ReportPropertiesDto::idArrayToCollection($memberIds) : null;
+    }
+
+    /**
+     * @param  array<mixed>|null  $memberGroupIds
+     */
+    public function setMemberGroupIds(?array $memberGroupIds): void
+    {
+        $this->memberGroupIds = $memberGroupIds !== null ? ReportPropertiesDto::idArrayToCollection($memberGroupIds) : null;
     }
 
     /**

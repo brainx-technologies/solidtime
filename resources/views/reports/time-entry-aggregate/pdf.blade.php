@@ -1,6 +1,7 @@
 @use('Brick\Math\BigDecimal')
 @use('Brick\Money\Money')
 @use('Illuminate\Support\Carbon')
+@use('Illuminate\Support\Str')
 @use('Carbon\CarbonInterval')
 @inject('colorService', 'App\Service\ColorService')
 <!DOCTYPE html>
@@ -135,11 +136,23 @@
 
 </head>
 <body>
+@php
+    $reportTotalSeconds = (int) ($aggregatedData['seconds'] ?? 0);
+    $showPercentColumn = $reportTotalSeconds > 0;
+    $hasThirdLevel = isset($thirdGroup) && $thirdGroup !== null;
+    $pctOfReport = static function (int $seconds) use ($reportTotalSeconds): string {
+        return number_format(($seconds / $reportTotalSeconds) * 100, 2).'%';
+    };
+@endphp
 <div>
     <p style="font-size: 32px; font-weight: 600; margin-bottom: 5px;">Report</p>
     <div style="font-size: 16px; font-weight: 600; color: #71717a;">
         <span>{{ $localization->formatDate($start->timezone($timezone)) }} - {{ $localization->formatDate($end->timezone($timezone)) }}</span><br><br>
     </div>
+    <div style="font-size: 14px; font-weight: 500; color: #71717a;">
+        Grouped by {{ $group->description() }} → {{ $subGroup->description() }}@if($hasThirdLevel) → {{ $thirdGroup->description() }}@endif
+    </div>
+    <br>
 
 </div>
 
@@ -178,6 +191,9 @@
                         {{ $group->description() }}
                     </th>
                     <th>Duration</th>
+                    @if($showPercentColumn)
+                    <th style="text-align: right;">%</th>
+                    @endif
                     @if($showBillableRate)
                     <th style="text-align: right;">Cost</th>
                     @endif
@@ -201,6 +217,11 @@
                         <td style="text-align: left;">
                             {{ $localization->formatIntervalForReporting(CarbonInterval::seconds($group1Entry['seconds'])) }}
                         </td>
+                        @if($showPercentColumn)
+                        <td style="text-align: right;">
+                            {{ $pctOfReport((int) $group1Entry['seconds']) }}
+                        </td>
+                        @endif
                         @if($showBillableRate)
                         <td style="text-align: right;">
                             {{ $localization->formatCurrency(Money::of(BigDecimal::ofUnscaledValue($group1Entry['cost'], 2)->__toString(), $currency)) }}
@@ -216,6 +237,11 @@
                     <td style="font-weight: 500;color: #18181b;">
                         {{ $localization->formatIntervalForReporting(CarbonInterval::seconds($aggregatedData['seconds'])) }}
                     </td>
+                    @if($showPercentColumn)
+                    <td style="text-align: right; font-weight: 500;color: #18181b;">
+                        100.00%
+                    </td>
+                    @endif
                     @if($showBillableRate)
                     <td style="text-align: right; font-weight: 500;color: #18181b;">
                         {{ $localization->formatCurrency(Money::of(BigDecimal::ofUnscaledValue($aggregatedData['cost'], 2)->__toString(), $currency)) }}
@@ -247,60 +273,115 @@
             <table style="width: 100%;">
                 <thead>
                 <tr>
-                    <th>
-                        {{ $subGroup->description() }}
-                    </th>
-                    <th>
-                        Duration
-                    </th>
-                    <th>
-                        Duration (h)
-                    </th>
+                    <th>{{ $subGroup->description() }}</th>
+                    @if($hasThirdLevel)
+                    <th>{{ $thirdGroup->description() }}</th>
+                    @endif
+                    <th>Duration</th>
+                    <th>Duration (h)</th>
+                    @if($showPercentColumn)
+                    <th style="text-align: right;">%</th>
+                    @endif
                     @if($showBillableRate)
-                    <th>
-                        Cost
-                    </th>
+                    <th style="text-align: right;">Cost</th>
                     @endif
                 </tr>
                 </thead>
                 <tbody>
-                @php
-                    $counter = 1;
-                    $totalDuration = 0;
-                    $totalCost = 0;
-                @endphp
-                @foreach($group1Entry['grouped_data'] as $group2Entry)
-                    @php
-                        $duration = CarbonInterval::seconds($group2Entry['seconds']);
-                    @endphp
-                    <tr>
-                        <td>
-                            @if($subGroup->is(\App\Enums\TimeEntryAggregationType::Billable))
-                                {{ $group2Entry['key'] === '1' ? 'Billable' : 'Non-billable' }}
-                            @else
-                                {{ $group2Entry['description'] ?? $group2Entry['key'] ?? '-' }}
+                @if($hasThirdLevel)
+                    @foreach($group1Entry['grouped_data'] ?? [] as $group2Entry)
+                        @foreach($group2Entry['grouped_data'] ?? [] as $group3Entry)
+                            @php
+                                $duration = CarbonInterval::seconds($group3Entry['seconds']);
+                            @endphp
+                            <tr>
+                                <td>
+                                    @if($subGroup->is(\App\Enums\TimeEntryAggregationType::Billable))
+                                        {{ $group2Entry['key'] === '1' ? 'Billable' : 'Non-billable' }}
+                                    @else
+                                        {{ $group2Entry['description'] ?? $group2Entry['key'] ?? '-' }}
+                                    @endif
+                                </td>
+                                <td>
+                                    @if($thirdGroup->is(\App\Enums\TimeEntryAggregationType::Billable))
+                                        {{ $group3Entry['key'] === '1' ? 'Billable' : 'Non-billable' }}
+                                    @else
+                                        {{ $group3Entry['description'] ?? $group3Entry['key'] ?? '-' }}
+                                    @endif
+                                </td>
+                                <td>
+                                    {{ $localization->formatIntervalForReporting($duration) }}
+                                </td>
+                                <td>
+                                    {{ $localization->formatNumber($duration->totalHours) }}
+                                </td>
+                                @if($showPercentColumn)
+                                <td style="text-align: right;">
+                                    {{ $pctOfReport((int) $group3Entry['seconds']) }}
+                                </td>
+                                @endif
+                                @if($showBillableRate)
+                                <td style="text-align: right;">
+                                    {{ $localization->formatCurrency(Money::of(BigDecimal::ofUnscaledValue($group3Entry['cost'], 2)->__toString(), $currency)) }}
+                                </td>
+                                @endif
+                            </tr>
+                        @endforeach
+                    @endforeach
+                @else
+                    @foreach($group1Entry['grouped_data'] ?? [] as $group2Entry)
+                        @php
+                            $duration = CarbonInterval::seconds($group2Entry['seconds']);
+                        @endphp
+                        <tr>
+                            <td>
+                                @if($subGroup->is(\App\Enums\TimeEntryAggregationType::Billable))
+                                    {{ $group2Entry['key'] === '1' ? 'Billable' : 'Non-billable' }}
+                                @else
+                                    {{ $group2Entry['description'] ?? $group2Entry['key'] ?? '-' }}
+                                @endif
+                            </td>
+                            <td>
+                                {{ $localization->formatIntervalForReporting($duration) }}
+                            </td>
+                            <td>
+                                {{ $localization->formatNumber($duration->totalHours) }}
+                            </td>
+                            @if($showPercentColumn)
+                            <td style="text-align: right;">
+                                {{ $pctOfReport((int) $group2Entry['seconds']) }}
+                            </td>
                             @endif
-                        </td>
-                        <td>
-                            {{ $localization->formatIntervalForReporting($duration) }}
-                        </td>
-                        <td>
-                            {{ $localization->formatNumber($duration->totalHours) }}
-                        </td>
-                        @if($showBillableRate)
-                        <td>
-                            {{ $localization->formatCurrency(Money::of(BigDecimal::ofUnscaledValue($group2Entry['cost'], 2)->__toString(), $currency)) }}
-                        </td>
-                        @endif
-                    </tr>
-                    @php
-                        $totalDuration += $group2Entry['seconds'];
-                        if ($showBillableRate) {
-                            $totalCost += $group2Entry['cost'];
-                        }
-                    @endphp
-                @endforeach
+                            @if($showBillableRate)
+                            <td style="text-align: right;">
+                                {{ $localization->formatCurrency(Money::of(BigDecimal::ofUnscaledValue($group2Entry['cost'], 2)->__toString(), $currency)) }}
+                            </td>
+                            @endif
+                        </tr>
+                    @endforeach
+                @endif
                 </tbody>
+                <tfoot>
+                <tr>
+                    <td style="font-weight: 500; color: #18181b;" colspan="{{ $hasThirdLevel ? 2 : 1 }}">Total</td>
+                    <td style="font-weight: 500; color: #18181b;">
+                        {{ $localization->formatIntervalForReporting(CarbonInterval::seconds($group1Entry['seconds'])) }}
+                    </td>
+                    <td style="font-weight: 500; color: #18181b;">
+                        {{ $localization->formatNumber(CarbonInterval::seconds($group1Entry['seconds'])->totalHours) }}
+                    </td>
+                    @if($showPercentColumn)
+                    <td style="text-align: right; font-weight: 500; color: #18181b;">
+                        {{ $pctOfReport((int) $group1Entry['seconds']) }}
+                    </td>
+                    @endif
+                    @if($showBillableRate)
+                    <td style="text-align: right; font-weight: 500; color: #18181b;">
+                        {{ $localization->formatCurrency(Money::of(BigDecimal::ofUnscaledValue($group1Entry['cost'], 2)->__toString(), $currency)) }}
+                    </td>
+                    @endif
+                </tr>
+                </tfoot>
             </table>
         </div>
 

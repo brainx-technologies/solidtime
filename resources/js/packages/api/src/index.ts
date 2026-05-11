@@ -60,10 +60,22 @@ export type Client = ClientIndexResponse['data'][0];
 export type MemberIndexResponse = ZodiosResponseByAlias<SolidTimeApi, 'getMembers'>;
 export type Member = MemberIndexResponse['data'][0];
 
+export type MemberIndexQueryParams = ZodiosQueryParamsByAlias<SolidTimeApi, 'getMembers'>;
+
 export type UpdateMemberBody = ZodiosBodyByAlias<SolidTimeApi, 'updateMember'>;
 
 export type InviteMemberBody = ZodiosBodyByAlias<SolidTimeApi, 'invite'>;
 export type MemberRole = InviteMemberBody['role'];
+
+export type MemberGroupIndexResponse = ZodiosResponseByAlias<SolidTimeApi, 'getMemberGroups'>;
+export type MemberGroup = MemberGroupIndexResponse['data'][0];
+
+export type CreateMemberGroupBody = ZodiosBodyByAlias<SolidTimeApi, 'createMemberGroup'>;
+export type UpdateMemberGroupBody = ZodiosBodyByAlias<SolidTimeApi, 'updateMemberGroup'>;
+export type SyncMemberGroupMembersBody = ZodiosBodyByAlias<
+    SolidTimeApi,
+    'syncMemberGroupMembers'
+>;
 
 export type CreateTagBody = ZodiosBodyByAlias<SolidTimeApi, 'createTag'>;
 export type UpdateTagBody = ZodiosBodyByAlias<SolidTimeApi, 'updateTag'>;

@@ -11,17 +11,23 @@ import MemberInviteModal from '@/Components/Common/Member/MemberInviteModal.vue'
 import type { Role } from '@/types/jetstream';
 import PageTitle from '@/Components/Common/PageTitle.vue';
 import InvitationTable from '@/Components/Common/Invitation/InvitationTable.vue';
-import { canCreateInvitations } from '@/utils/permissions';
+import MemberGroupTable from '@/Components/Common/MemberGroup/MemberGroupTable.vue';
+import MemberGroupCreateModal from '@/Components/Common/MemberGroup/MemberGroupCreateModal.vue';
+import {
+    canCreateInvitations,
+    canUpdateMembers,
+} from '@/utils/permissions';
 import { useStorage } from '@vueuse/core';
 import type { SortColumn, SortDirection } from '@/Components/Common/Member/MemberTable.vue';
 
 const inviteMember = ref(false);
+const createGroup = ref(false);
 
 defineProps<{
     availableRoles: Role[];
 }>();
 
-const activeTab = ref<'all' | 'invitations'>('all');
+const activeTab = ref<'all' | 'invitations' | 'groups'>('all');
 
 interface MemberTableState {
     sortColumn: SortColumn;
@@ -52,25 +58,36 @@ function handleSort(column: SortColumn, direction: SortDirection) {
                 <PageTitle :icon="UserGroupIcon" title="Members"> </PageTitle>
                 <TabBar v-model="activeTab">
                     <TabBarItem value="all">All</TabBarItem>
+                    <TabBarItem value="groups">Groups</TabBarItem>
                     <TabBarItem value="invitations">Invitations</TabBarItem>
                 </TabBar>
             </div>
-            <SecondaryButton
-                v-if="canCreateInvitations()"
-                :icon="PlusIcon"
-                @click="inviteMember = true"
-                >Invite member</SecondaryButton
-            >
+            <div class="flex items-center space-x-3">
+                <SecondaryButton
+                    v-if="activeTab === 'groups' && canUpdateMembers()"
+                    :icon="PlusIcon"
+                    @click="createGroup = true"
+                    >Create group</SecondaryButton
+                >
+                <SecondaryButton
+                    v-if="activeTab !== 'groups' && canCreateInvitations()"
+                    :icon="PlusIcon"
+                    @click="inviteMember = true"
+                    >Invite member</SecondaryButton
+                >
+            </div>
             <MemberInviteModal
                 v-model:show="inviteMember"
                 :available-roles="availableRoles"
                 @close="activeTab = 'invitations'"></MemberInviteModal>
+            <MemberGroupCreateModal v-model:show="createGroup"></MemberGroupCreateModal>
         </MainContainer>
         <MemberTable
             v-if="activeTab === 'all'"
             :sort-column="tableState.sortColumn"
             :sort-direction="tableState.sortDirection"
             @sort="handleSort"></MemberTable>
+        <MemberGroupTable v-if="activeTab === 'groups'"></MemberGroupTable>
         <InvitationTable v-if="activeTab === 'invitations'"></InvitationTable>
     </AppLayout>
 </template>

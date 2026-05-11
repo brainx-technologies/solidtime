@@ -1,6 +1,7 @@
 <script setup lang="ts">
 import ReportingRow from '@/Components/Common/Reporting/ReportingRow.vue';
 import ReportingGroupBySelect from '@/Components/Common/Reporting/ReportingGroupBySelect.vue';
+import { XMarkIcon } from '@heroicons/vue/20/solid';
 import {
     formatReportingDuration,
     getDayJsInstance,
@@ -19,11 +20,13 @@ import {
 import { useQuery } from '@tanstack/vue-query';
 import { useStorage } from '@vueuse/core';
 import { computed, inject, type ComputedRef, watch } from 'vue';
+import { mapGroupingTreeToTableRows, type GroupingTreeNode } from '@/utils/reportingGroupedTable';
 
 const organization = inject<ComputedRef<Organization>>('organization');
 
 const group = useStorage<GroupingOption>('dashboard-reporting-group', 'project');
 const subGroup = useStorage<GroupingOption>('dashboard-reporting-sub-group', 'task');
+const thirdGroup = useStorage<GroupingOption | null>('dashboard-reporting-third-group', null);
 
 const reportingStore = useReportingStore();
 const { groupByOptions, getNameForReportingRowEntry } = reportingStore;
@@ -36,6 +39,22 @@ watch(
             if (fallbackOption?.value) {
                 subGroup.value = fallbackOption.value;
             }
+        }
+    },
+    { immediate: true }
+);
+
+watch(
+    [group, subGroup],
+    () => {
+        if (thirdGroup.value === null) {
+            return;
+        }
+        if (thirdGroup.value === group.value || thirdGroup.value === subGroup.value) {
+            const fallbackOption = groupByOptions.find(
+                (el) => el.value !== group.value && el.value !== subGroup.value
+            );
+            thirdGroup.value = fallbackOption?.value ?? null;
         }
     },
     { immediate: true }
@@ -61,6 +80,7 @@ const queryParams = computed<AggregatedTimeEntriesQueryParams>(() => {
         end: weekEndUtc.value,
         group: group.value,
         sub_group: subGroup.value,
+        third_group: thirdGroup.value ?? undefined,
         member_id: getCurrentRole() === 'employee' ? getCurrentMembershipId() : undefined,
     };
 });
@@ -73,6 +93,7 @@ const { data: reportingResponse, isLoading } = useQuery({
         weekEndUtc,
         group,
         subGroup,
+        thirdGroup,
     ],
     queryFn: () => {
         return api.getAggregatedTimeEntries({
@@ -90,28 +111,13 @@ const aggregatedTableTimeEntries = computed<AggregatedTimeEntries | null>(() => 
 });
 
 const tableData = computed(() => {
+    const rootType = aggregatedTableTimeEntries.value?.grouped_type ?? null;
     return (
-        aggregatedTableTimeEntries.value?.grouped_data?.map((entry) => {
-            return {
-                seconds: entry.seconds,
-                cost: entry.cost,
-                description: getNameForReportingRowEntry(
-                    entry.key,
-                    aggregatedTableTimeEntries.value?.grouped_type ?? null
-                ),
-                grouped_data:
-                    entry.grouped_data?.map((el) => {
-                        return {
-                            seconds: el.seconds,
-                            cost: el.cost,
-                            description: getNameForReportingRowEntry(
-                                el.key,
-                                entry.grouped_type ?? null
-                            ),
-                        };
-                    }) ?? [],
-            };
-        }) ?? []
+        aggregatedTableTimeEntries.value?.grouped_data?.map((entry) =>
+            mapGroupingTreeToTableRows(entry as GroupingTreeNode, rootType, (e, gt) =>
+                getNameForReportingRowEntry(e.key ?? null, gt)
+            )
+        ) ?? []
     );
 });
 
@@ -136,6 +142,33 @@ const showBillableRate = computed(() => {
                 :group-by-options="
                     groupByOptions.filter((el) => el.value !== group)
                 "></ReportingGroupBySelect>
+            <template v-if="thirdGroup !== null">
+                <span>and</span>
+                <ReportingGroupBySelect
+                    v-model="thirdGroup"
+                    :group-by-options="
+                        groupByOptions.filter(
+                            (el) => el.value !== group && el.value !== subGroup
+                        )
+                    "></ReportingGroupBySelect>
+                <button
+                    class="inline-flex items-center text-text-tertiary hover:text-text-primary"
+                    title="Remove third group"
+                    @click="thirdGroup = null">
+                    <XMarkIcon class="h-4 w-4" />
+                </button>
+            </template>
+            <button
+                v-else
+                class="text-sm text-text-tertiary hover:text-text-primary"
+                @click="
+                    thirdGroup =
+                        groupByOptions.find(
+                            (el) => el.value !== group && el.value !== subGroup
+                        )?.value ?? null
+                ">
+                + Add group
+            </button>
         </div>
 
         <div

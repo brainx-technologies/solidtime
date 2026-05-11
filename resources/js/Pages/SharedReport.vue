@@ -15,6 +15,7 @@ import { getRandomColorWithSeed } from '@/packages/ui/src/utils/color';
 import { useReportingStore } from '@/utils/useReporting';
 import { Head } from '@inertiajs/vue3';
 import { useTheme } from '@/utils/theme';
+import { mapGroupingTreeToTableRows, type GroupingTreeNode } from '@/utils/reportingGroupedTable';
 
 const sharedSecret = ref<string | null>(null);
 
@@ -90,6 +91,19 @@ const aggregatedTableTimeEntries = computed(() => {
         cost: 0,
     };
 });
+
+const reportTotalSeconds = computed(() => aggregatedTableTimeEntries.value?.seconds ?? 0);
+
+const showPercentColumn = computed(() => reportTotalSeconds.value > 0);
+
+const tableGridTemplate = computed(() => {
+    const parts = ['1fr', '100px'];
+    if (showPercentColumn.value) {
+        parts.push('minmax(3.25rem,auto)');
+    }
+    parts.push('150px');
+    return parts.join(' ');
+});
 const aggregatedGraphTimeEntries = computed(() => {
     if (sharedReportResponseData.value) {
         return sharedReportResponseData.value?.history_data;
@@ -116,6 +130,13 @@ const subGroup = computed(() => {
     }
     return 'project';
 });
+
+const thirdGroup = computed(() => {
+    if (sharedReportResponseData.value) {
+        return sharedReportResponseData.value?.properties.third_group ?? null;
+    }
+    return null;
+});
 const { emptyPlaceholder } = useReportingStore();
 
 const groupedPieChartData = computed(() => {
@@ -141,27 +162,12 @@ const groupedPieChartData = computed(() => {
 });
 
 const tableData = computed(() => {
-    return aggregatedTableTimeEntries.value?.grouped_data?.map((entry) => {
-        return {
-            seconds: entry.seconds,
-            cost: entry.cost,
-            description:
-                entry.description ??
-                emptyPlaceholder[aggregatedTableTimeEntries.value?.grouped_type ?? 'project'] ??
-                '',
-            grouped_data:
-                entry.grouped_data?.map((el) => {
-                    return {
-                        seconds: el.seconds,
-                        cost: el.cost,
-                        description:
-                            el.description ??
-                            emptyPlaceholder[entry.grouped_type ?? 'project'] ??
-                            '',
-                    };
-                }) ?? [],
-        };
-    });
+    const rootType = aggregatedTableTimeEntries.value?.grouped_type ?? 'project';
+    return aggregatedTableTimeEntries.value?.grouped_data?.map((entry) =>
+        mapGroupingTreeToTableRows(entry as GroupingTreeNode, rootType, (e, gt) =>
+            e.description ?? emptyPlaceholder[gt ?? 'project'] ?? ''
+        )
+    );
 });
 
 const { groupByOptions } = useReportingStore();
@@ -204,12 +210,25 @@ onMounted(async () => {
                         <strong class="px-2">{{ getGroupLabel(group) }}</strong>
                         and
                         <strong class="px-2">{{ getGroupLabel(subGroup) }}</strong>
+                        <template v-if="thirdGroup">
+                            and
+                            <strong class="px-2">{{ getGroupLabel(thirdGroup) }}</strong>
+                        </template>
                     </div>
-                    <div class="grid items-center" style="grid-template-columns: 1fr 100px 150px">
+                    <div
+                        class="grid items-center"
+                        :style="`grid-template-columns: ${tableGridTemplate}`">
                         <div
                             class="contents [&>*]:border-card-background-separator [&>*]:border-b [&>*]:bg-tertiary [&>*]:pb-1.5 [&>*]:pt-1 text-text-secondary text-sm">
                             <div class="pl-6">Name</div>
-                            <div class="text-right">Duration</div>
+                            <div class="text-right" :class="!showPercentColumn ? 'pr-6' : ''">
+                                Duration
+                            </div>
+                            <div
+                                v-if="showPercentColumn"
+                                class="text-right text-sm tabular-nums pr-6">
+                                %
+                            </div>
                             <div class="text-right pr-6">Cost</div>
                         </div>
                         <template
@@ -221,7 +240,8 @@ onMounted(async () => {
                                 v-for="entry in tableData"
                                 :key="entry.description ?? 'none'"
                                 :currency="reportCurrency"
-                                :currency-format="reportCurrencyFormat"
+                                :depth="0"
+                                :report-total-seconds="reportTotalSeconds"
                                 :show-cost="true"
                                 :entry="entry"></ReportingRow>
                             <div
@@ -229,7 +249,9 @@ onMounted(async () => {
                                 <div class="flex items-center pl-6 font-medium">
                                     <span>Total</span>
                                 </div>
-                                <div class="justify-end flex items-center font-medium">
+                                <div
+                                    class="justify-end flex items-center font-medium"
+                                    :class="!showPercentColumn ? 'pr-6' : ''">
                                     {{
                                         formatReportingDuration(
                                             aggregatedTableTimeEntries.seconds,
@@ -237,6 +259,11 @@ onMounted(async () => {
                                             reportNumberFormat
                                         )
                                     }}
+                                </div>
+                                <div
+                                    v-if="showPercentColumn"
+                                    class="justify-end flex items-center font-medium text-sm tabular-nums text-text-secondary pr-6">
+                                    100.00%
                                 </div>
                                 <div class="justify-end pr-6 flex items-center font-medium">
                                     {{
@@ -255,7 +282,7 @@ onMounted(async () => {
                         </template>
                         <div
                             v-else
-                            class="chart flex flex-col items-center justify-center py-12 col-span-3">
+                            class="chart col-span-full flex flex-col items-center justify-center py-12">
                             <p class="text-lg text-text-primary font-semibold">
                                 No time entries found
                             </p>

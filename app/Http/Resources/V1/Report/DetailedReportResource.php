@@ -38,6 +38,8 @@ class DetailedReportResource extends BaseResource
                 'group' => $this->resource->properties->group->value,
                 /** @var string $sub_group Type of second grouping */
                 'sub_group' => $this->resource->properties->subGroup->value,
+                /** @var string|null $third_group Type of optional third grouping */
+                'third_group' => $this->resource->properties->thirdGroup?->value,
                 /** @var string $history_group Type of grouping of the historic aggregation (time chart) */
                 'history_group' => $this->resource->properties->historyGroup->value,
                 /** @var string $start Start date of the report */
@@ -48,6 +50,8 @@ class DetailedReportResource extends BaseResource
                 'active' => $this->resource->properties->active,
                 /** @var array<string>|null $member_ids Filter by multiple member IDs, member IDs are OR combined */
                 'member_ids' => $this->resource->properties->memberIds?->toArray(),
+                /** @var array<string>|null $member_group_ids Filter by member group IDs (merged with member_ids when aggregating) */
+                'member_group_ids' => $this->resource->properties->memberGroupIds?->toArray(),
                 /** @var bool|null $billable Filter by billable status */
                 'billable' => $this->resource->properties->billable,
                 /** @var array<string>|null $client_ids Filter by client IDs, client IDs are OR combined */

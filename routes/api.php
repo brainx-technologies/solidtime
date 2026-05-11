@@ -10,11 +10,13 @@ use App\Http\Controllers\Api\V1\ExportController;
 use App\Http\Controllers\Api\V1\ImportController;
 use App\Http\Controllers\Api\V1\InvitationController;
 use App\Http\Controllers\Api\V1\MemberController;
+use App\Http\Controllers\Api\V1\MemberGroupController;
 use App\Http\Controllers\Api\V1\OrganizationController;
 use App\Http\Controllers\Api\V1\ProjectController;
 use App\Http\Controllers\Api\V1\ProjectMemberController;
 use App\Http\Controllers\Api\V1\Public\ReportController as PublicReportController;
 use App\Http\Controllers\Api\V1\ReportController;
+use App\Http\Controllers\Api\V1\SummaryReportController;
 use App\Http\Controllers\Api\V1\TagController;
 use App\Http\Controllers\Api\V1\TaskController;
 use App\Http\Controllers\Api\V1\TimeEntryController;
@@ -54,6 +56,15 @@ Route::prefix('v1')->name('v1.')->group(static function (): void {
             Route::post('/members/{member}/invite-placeholder', [MemberController::class, 'invitePlaceholder'])->name('invite-placeholder');
             Route::post('/members/{member}/make-placeholder', [MemberController::class, 'makePlaceholder'])->name('make-placeholder');
             Route::post('member/{member}/merge-into', [MemberController::class, 'mergeInto'])->name('merge-into');
+        });
+
+        // Member group routes
+        Route::name('member-groups.')->prefix('/organizations/{organization}')->group(static function (): void {
+            Route::get('/member-groups', [MemberGroupController::class, 'index'])->name('index');
+            Route::post('/member-groups', [MemberGroupController::class, 'store'])->name('store')->middleware('check-organization-blocked');
+            Route::put('/member-groups/{memberGroup}', [MemberGroupController::class, 'update'])->name('update')->middleware('check-organization-blocked');
+            Route::delete('/member-groups/{memberGroup}', [MemberGroupController::class, 'destroy'])->name('destroy')->middleware('check-organization-blocked');
+            Route::put('/member-groups/{memberGroup}/members', [MemberGroupController::class, 'syncMembers'])->name('sync-members')->middleware('check-organization-blocked');
         });
 
         // User routes
@@ -110,6 +121,11 @@ Route::prefix('v1')->name('v1.')->group(static function (): void {
             Route::patch('/time-entries', [TimeEntryController::class, 'updateMultiple'])->name('update-multiple')->middleware('check-organization-blocked');
             Route::delete('/time-entries/{timeEntry}', [TimeEntryController::class, 'destroy'])->name('destroy');
             Route::delete('/time-entries', [TimeEntryController::class, 'destroyMultiple'])->name('destroy-multiple');
+        });
+
+        // Summary report route (Clockify-compatible endpoint shape)
+        Route::name('summary-reports.')->prefix('/workspaces/{organization}')->group(static function (): void {
+            Route::post('/reports/summary', [SummaryReportController::class, 'summary'])->name('summary');
         });
 
         Route::name('users.time-entries.')->group(static function (): void {

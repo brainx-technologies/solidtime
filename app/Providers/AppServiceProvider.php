@@ -7,6 +7,7 @@ namespace App\Providers;
 use App\Models\Client;
 use App\Models\FailedJob;
 use App\Models\Member;
+use App\Models\MemberGroup;
 use App\Models\Organization;
 use App\Models\OrganizationInvitation;
 use App\Models\Passport\Token;
@@ -60,6 +61,7 @@ class AppServiceProvider extends ServiceProvider
             'client' => Client::class,
             'failed-job' => FailedJob::class,
             'membership' => Member::class,
+            'member-group' => MemberGroup::class,
             'organization' => Organization::class,
             'organization-invitation' => OrganizationInvitation::class,
             'project' => Project::class,

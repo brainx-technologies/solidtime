@@ -9,6 +9,7 @@ use App\Enums\TimeEntryRoundingType;
 use App\Http\Requests\V1\BaseFormRequest;
 use App\Models\Client;
 use App\Models\Member;
+use App\Models\MemberGroup;
 use App\Models\Organization;
 use App\Models\Project;
 use App\Models\Tag;
@@ -37,13 +38,29 @@ class TimeEntryAggregateRequest extends BaseFormRequest
             // Type of first grouping
             'group' => [
                 'nullable',
-                'required_with:sub_group',
+                'required_with:sub_group,third_group',
                 Rule::enum(TimeEntryAggregationType::class),
             ],
             // Type of second grouping
             'sub_group' => [
                 'nullable',
+                'required_with:third_group',
                 Rule::enum(TimeEntryAggregationType::class),
+            ],
+            // Type of third grouping
+            'third_group' => [
+                'nullable',
+                Rule::enum(TimeEntryAggregationType::class),
+                function (string $attribute, mixed $value, \Closure $fail): void {
+                    $values = array_filter([
+                        $this->input('group'),
+                        $this->input('sub_group'),
+                        $this->input('third_group'),
+                    ], static fn (mixed $v): bool => is_string($v) && $v !== '');
+                    if (count(array_keys($values, TimeEntryAggregationType::Tag->value, true)) > 1) {
+                        $fail('Tag grouping can only be used at one level at a time.');
+                    }
+                },
             ],
             // Filter by member ID
             'member_id' => [
@@ -56,12 +73,22 @@ class TimeEntryAggregateRequest extends BaseFormRequest
             // Filter by multiple member IDs, member IDs are OR combined, but AND combined with the member_id parameter
             'member_ids' => [
                 'array',
-                'min:1',
             ],
             'member_ids.*' => [
                 'string',
                 ExistsEloquent::make(Member::class, null, function (Builder $builder): Builder {
                     /** @var Builder<Member> $builder */
+                    return $builder->whereBelongsTo($this->organization, 'organization');
+                })->uuid(),
+            ],
+            // Filter by member group IDs; members in these groups are OR-merged with member_ids
+            'member_group_ids' => [
+                'array',
+            ],
+            'member_group_ids.*' => [
+                'string',
+                ExistsEloquent::make(MemberGroup::class, null, function (Builder $builder): Builder {
+                    /** @var Builder<MemberGroup> $builder */
                     return $builder->whereBelongsTo($this->organization, 'organization');
                 })->uuid(),
             ],
@@ -191,6 +218,11 @@ class TimeEntryAggregateRequest extends BaseFormRequest
     public function getSubGroup(): ?TimeEntryAggregationType
     {
         return $this->input('sub_group') !== null ? TimeEntryAggregationType::from($this->input('sub_group')) : null;
+    }
+
+    public function getThirdGroup(): ?TimeEntryAggregationType
+    {
+        return $this->input('third_group') !== null ? TimeEntryAggregationType::from($this->input('third_group')) : null;
     }
 
     public function getFillGapsInTimeGroups(): bool

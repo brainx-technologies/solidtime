@@ -114,6 +114,19 @@ const userHasValidMailAddress = computed(() => {
                         <span>Inactive</span>
                     </template>
                 </div>
+                <div class="px-3 py-4 text-sm text-text-primary">
+                    <div
+                        v-if="member.groups && member.groups.length > 0"
+                        class="flex flex-wrap gap-1.5">
+                        <span
+                            v-for="group in member.groups"
+                            :key="group.id"
+                            class="inline-flex items-center rounded bg-secondary px-2 py-0.5 text-xs text-text-secondary border border-border-secondary">
+                            {{ group.name }}
+                        </span>
+                    </div>
+                    <span v-else class="text-text-tertiary">--</span>
+                </div>
                 <div
                     class="relative whitespace-nowrap flex items-center pl-3 text-right text-sm font-medium sm:pr-0 pr-4 sm:pr-6 lg:pr-8 3xl:pr-12">
                     <SecondaryButton
