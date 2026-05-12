@@ -8,8 +8,10 @@ use App\Models\Client;
 use App\Models\FailedJob;
 use App\Models\Member;
 use App\Models\MemberGroup;
+use App\Models\MemberTimeEntryEditOverride;
 use App\Models\Organization;
 use App\Models\OrganizationInvitation;
+use App\Models\OrganizationTimeEntryEditPolicy;
 use App\Models\Passport\Token;
 use App\Models\Project;
 use App\Models\ProjectMember;
@@ -62,8 +64,10 @@ class AppServiceProvider extends ServiceProvider
             'failed-job' => FailedJob::class,
             'membership' => Member::class,
             'member-group' => MemberGroup::class,
+            'member-time-entry-edit-override' => MemberTimeEntryEditOverride::class,
             'organization' => Organization::class,
             'organization-invitation' => OrganizationInvitation::class,
+            'organization-time-entry-edit-policy' => OrganizationTimeEntryEditPolicy::class,
             'project' => Project::class,
             'project-member' => ProjectMember::class,
             'tag' => Tag::class,

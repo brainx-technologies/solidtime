@@ -29,8 +29,17 @@ const emptyTimeEntry = {
     organization_id: '',
 } as TimeEntry;
 
+function cloneTimeEntry(entry: TimeEntry): TimeEntry {
+    return {
+        ...entry,
+        tags: [...(entry.tags ?? [])],
+    };
+}
+
 export const useCurrentTimeEntryStore = defineStore('currentTimeEntry', () => {
     const currentTimeEntry = ref<TimeEntry>({ ...emptyTimeEntry });
+    /** Last server-accepted active entry; used to revert UI when updateTimer fails (e.g. edit lock). */
+    const lastSyncedTimeEntry = ref<TimeEntry | null>(null);
     const { handleApiRequestNotifications } = useNotificationsStore();
     const queryClient = useQueryClient();
 
@@ -40,6 +49,7 @@ export const useCurrentTimeEntryStore = defineStore('currentTimeEntry', () => {
 
     function $reset() {
         currentTimeEntry.value = { ...emptyTimeEntry };
+        lastSyncedTimeEntry.value = null;
     }
 
     const now = ref<null | Dayjs>(null);
@@ -67,6 +77,7 @@ export const useCurrentTimeEntryStore = defineStore('currentTimeEntry', () => {
                 if (timeEntriesResponse?.data) {
                     if (timeEntriesResponse.data) {
                         currentTimeEntry.value = timeEntriesResponse.data;
+                        lastSyncedTimeEntry.value = cloneTimeEntry(timeEntriesResponse.data);
                         if (
                             currentTimeEntry.value.start !== '' &&
                             currentTimeEntry.value.end === null
@@ -79,6 +90,7 @@ export const useCurrentTimeEntryStore = defineStore('currentTimeEntry', () => {
                         // Don't reset if user is preparing a new time entry (no ID yet)
                         if (currentTimeEntry.value.id !== '') {
                             currentTimeEntry.value = { ...emptyTimeEntry };
+                            lastSyncedTimeEntry.value = null;
                             stopLiveTimer();
                         }
                     }
@@ -89,6 +101,7 @@ export const useCurrentTimeEntryStore = defineStore('currentTimeEntry', () => {
                 // Don't reset if user is preparing a new time entry (no ID yet)
                 if (currentTimeEntry.value.id !== '') {
                     currentTimeEntry.value = { ...emptyTimeEntry };
+                    lastSyncedTimeEntry.value = null;
                     stopLiveTimer();
                 }
             }
@@ -125,6 +138,7 @@ export const useCurrentTimeEntryStore = defineStore('currentTimeEntry', () => {
             );
             if (response?.data) {
                 currentTimeEntry.value = response.data;
+                lastSyncedTimeEntry.value = cloneTimeEntry(response.data);
             }
         } else {
             throw new Error(
@@ -165,34 +179,43 @@ export const useCurrentTimeEntryStore = defineStore('currentTimeEntry', () => {
         const user = getCurrentUserId();
         const organization = getCurrentOrganizationId();
         if (organization) {
-            const response = await handleApiRequestNotifications(
-                () =>
-                    api.updateTimeEntry(
-                        {
-                            description: currentTimeEntry.value.description,
-                            user_id: user,
-                            project_id: currentTimeEntry.value.project_id,
-                            task_id: currentTimeEntry.value.task_id,
-                            start: currentTimeEntry.value.start,
-                            billable: currentTimeEntry.value.billable,
-                            end: currentTimeEntry.value.end,
-                            tags: currentTimeEntry.value.tags,
-                        },
-                        {
-                            params: {
-                                organization: organization,
-                                timeEntry: currentTimeEntry.value.id,
+            try {
+                const response = await handleApiRequestNotifications(
+                    () =>
+                        api.updateTimeEntry(
+                            {
+                                description: currentTimeEntry.value.description,
+                                user_id: user,
+                                project_id: currentTimeEntry.value.project_id,
+                                task_id: currentTimeEntry.value.task_id,
+                                start: currentTimeEntry.value.start,
+                                billable: currentTimeEntry.value.billable,
+                                end: currentTimeEntry.value.end,
+                                tags: currentTimeEntry.value.tags,
                             },
-                        }
-                    ),
-                'Time entry updated!'
-            );
-            if (response?.data) {
-                if (response.data.end === null) {
-                    currentTimeEntry.value = response.data;
+                            {
+                                params: {
+                                    organization: organization,
+                                    timeEntry: currentTimeEntry.value.id,
+                                },
+                            }
+                        ),
+                    'Time entry updated!'
+                );
+                if (response?.data) {
+                    if (response.data.end === null) {
+                        currentTimeEntry.value = response.data;
+                        lastSyncedTimeEntry.value = cloneTimeEntry(response.data);
+                    } else {
+                        $reset();
+                        stopLiveTimer();
+                    }
+                }
+            } catch {
+                if (lastSyncedTimeEntry.value) {
+                    currentTimeEntry.value = cloneTimeEntry(lastSyncedTimeEntry.value);
                 } else {
-                    $reset();
-                    stopLiveTimer();
+                    await fetchCurrentTimeEntry();
                 }
             }
         } else {

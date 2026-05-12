@@ -11,6 +11,7 @@ use App\Exceptions\Api\OverlappingTimeEntryApiException;
 use App\Exceptions\Api\PdfExportRowLimitExceededApiException;
 use App\Exceptions\Api\PdfRendererIsNotConfiguredException;
 use App\Exceptions\Api\TimeEntryCanNotBeRestartedApiException;
+use App\Exceptions\Api\TimeEntryEditWindowExpiredApiException;
 use App\Exceptions\Api\TimeEntryStillRunningApiException;
 use App\Http\Requests\V1\TimeEntry\TimeEntryAggregateExportRequest;
 use App\Http\Requests\V1\TimeEntry\TimeEntryAggregateRequest;
@@ -30,10 +31,12 @@ use App\Models\Project;
 use App\Models\Task;
 use App\Models\TimeEntry;
 use App\Service\LocalizationService;
+use App\Service\PermissionStore;
 use App\Service\ReportExport\TimeEntriesDetailedCsvExport;
 use App\Service\ReportExport\TimeEntriesDetailedExport;
 use App\Service\ReportExport\TimeEntriesReportExport;
 use App\Service\TimeEntryAggregationService;
+use App\Service\TimeEntryEditLockService;
 use App\Service\TimeEntryFilter;
 use App\Service\TimeEntryMemberFilterResolver;
 use App\Service\TimeEntryService;
@@ -62,6 +65,26 @@ use Spatie\TemporaryDirectory\TemporaryDirectory;
 class TimeEntryController extends Controller
 {
     private const int PdfExportMaxRows = 3000;
+
+    public function __construct(
+        PermissionStore $permissionStore,
+        private readonly TimeEntryEditLockService $timeEntryEditLockService,
+    ) {
+        parent::__construct($permissionStore);
+    }
+
+    /**
+     * @throws TimeEntryEditWindowExpiredApiException
+     */
+    private function assertTimeEntryEditLock(Organization $organization, string $entryOwnerUserId, Carbon $start): void
+    {
+        $this->timeEntryEditLockService->assertTimeEntryEditLock(
+            $organization,
+            $this->member($organization),
+            $entryOwnerUserId,
+            $start,
+        );
+    }
 
     private function assertNoOverlap(Organization $organization, Member $member, \Illuminate\Support\Carbon $start, ?\Illuminate\Support\Carbon $end, ?TimeEntry $exclude = null): void
     {
@@ -662,6 +685,7 @@ class TimeEntryController extends Controller
         // Overlap check for create
         $start = Carbon::parse($request->input('start'));
         $end = $request->input('end') !== null ? Carbon::parse($request->input('end')) : null;
+        $this->assertTimeEntryEditLock($organization, $member->user_id, $start);
         $this->assertNoOverlap($organization, $member, $start, $end);
 
         $project = $request->input('project_id') !== null ? Project::findOrFail((string) $request->input('project_id')) : null;
@@ -706,6 +730,14 @@ class TimeEntryController extends Controller
 
         if ($timeEntry->end !== null && $request->has('end') && $request->input('end') === null) {
             throw new TimeEntryCanNotBeRestartedApiException;
+        }
+        // Persisted start first so a client cannot bypass the lock by sending an unlocked `start`
+        // while the row still reflects a locked day. If `start` is being changed, also enforce the new value.
+        if ($timeEntry->start !== null) {
+            $this->assertTimeEntryEditLock($organization, $timeEntry->user_id, Carbon::parse($timeEntry->start));
+        }
+        if ($request->has('start')) {
+            $this->assertTimeEntryEditLock($organization, $timeEntry->user_id, Carbon::parse($request->input('start')));
         }
 
         // Overlap check for update (exclude current)
@@ -815,6 +847,18 @@ class TimeEntryController extends Controller
                 continue;
 
             }
+            try {
+                if ($timeEntry->start !== null) {
+                    $this->assertTimeEntryEditLock($organization, $timeEntry->user_id, Carbon::parse($timeEntry->start));
+                }
+                if (isset($changes['start'])) {
+                    $this->assertTimeEntryEditLock($organization, $timeEntry->user_id, Carbon::parse($changes['start']));
+                }
+            } catch (TimeEntryEditWindowExpiredApiException) {
+                $error->push($id);
+
+                continue;
+            }
             $oldProject = $timeEntry->project;
             $oldTask = $timeEntry->task;
 
@@ -864,6 +908,7 @@ class TimeEntryController extends Controller
         } else {
             $this->checkPermission($organization, 'time-entries:delete:all', $timeEntry);
         }
+        $this->assertTimeEntryEditLock($organization, $timeEntry->user_id, Carbon::parse($timeEntry->start));
 
         $project = $timeEntry->project;
         $task = $timeEntry->task;
@@ -921,6 +966,13 @@ class TimeEntryController extends Controller
 
                 continue;
 
+            }
+            try {
+                $this->assertTimeEntryEditLock($organization, $timeEntry->user_id, Carbon::parse($timeEntry->start));
+            } catch (TimeEntryEditWindowExpiredApiException) {
+                $error->push($id);
+
+                continue;
             }
 
             $project = $timeEntry->project;

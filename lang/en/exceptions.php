@@ -20,6 +20,7 @@ use App\Exceptions\Api\PdfRendererIsNotConfiguredException;
 use App\Exceptions\Api\PersonalAccessClientIsNotConfiguredException;
 use App\Exceptions\Api\ThisPlaceholderCanNotBeInvitedUseTheMergeToolInsteadException;
 use App\Exceptions\Api\TimeEntryCanNotBeRestartedApiException;
+use App\Exceptions\Api\TimeEntryEditWindowExpiredApiException;
 use App\Exceptions\Api\TimeEntryStillRunningApiException;
 use App\Exceptions\Api\UserIsAlreadyMemberOfOrganizationApiException;
 use App\Exceptions\Api\UserIsAlreadyMemberOfProjectApiException;
@@ -31,6 +32,7 @@ return [
         TimeEntryStillRunningApiException::KEY => 'Time entry is still running',
         UserNotPlaceholderApiException::KEY => 'The given user is not a placeholder',
         TimeEntryCanNotBeRestartedApiException::KEY => 'Time entry is already stopped and can not be restarted',
+        TimeEntryEditWindowExpiredApiException::KEY => 'You can no longer edit this time entry. Ask an admin for temporary edit approval.',
         InactiveUserCanNotBeUsedApiException::KEY => 'Inactive user can not be used',
         UserIsAlreadyMemberOfOrganizationApiException::KEY => 'User is already a member of the organization',
         UserIsAlreadyMemberOfProjectApiException::KEY => 'User is already a member of the project',
