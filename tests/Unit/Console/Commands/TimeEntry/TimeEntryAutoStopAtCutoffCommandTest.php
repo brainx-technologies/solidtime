@@ -114,6 +114,7 @@ class TimeEntryAutoStopAtCutoffCommandTest extends TestCaseWithDatabase
         MemberTimeEntryEditOverride::query()->create([
             'organization_id' => $data->organization->getKey(),
             'member_id' => $data->member->getKey(),
+            'applies_on' => '2026-05-07',
             'editable_until' => Carbon::parse('2026-05-08 11:00:00', 'Europe/Berlin')->utc(),
         ]);
         $entry = TimeEntry::factory()->forOrganization($data->organization)->forMember($data->member)->create([

@@ -73,6 +73,10 @@ export function canUpdateMembers() {
     return currentUserHasPermission('members:update');
 }
 
+export function canManageMemberTimeEntryOverrides() {
+    return currentUserHasPermission('member:time-entry-override');
+}
+
 export function canDeleteMembers() {
     return currentUserHasPermission('members:delete');
 }

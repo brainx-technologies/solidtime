@@ -1,6 +1,7 @@
 <script setup lang="ts">
 import FormSection from '@/Components/FormSection.vue';
 import PrimaryButton from '@/packages/ui/src/Buttons/PrimaryButton.vue';
+import { usePage } from '@inertiajs/vue3';
 import { computed, onMounted, ref, watch } from 'vue';
 import { Field, FieldLabel } from '@/packages/ui/src/field';
 import { Checkbox } from '@/packages/ui/src';
@@ -18,6 +19,9 @@ dayjs.extend(timezone);
 
 const { handleApiRequestNotifications } = useNotificationsStore();
 const organizationId = getCurrentOrganizationId();
+
+const page = usePage<{ timezones?: Record<string, string> }>();
+const timezoneOptions = computed(() => page.props.timezones ?? {});
 
 type TimeEntryEditPolicy = {
     id: string | null;
@@ -40,6 +44,17 @@ const cutoffPickerDisplay = ref<string | null>(null);
 const savingPolicy = ref(false);
 
 const hasOrganization = computed(() => !!organizationId);
+
+function ensurePolicyTimezoneInSelectOptions(): void {
+    const opts = timezoneOptions.value;
+    if (Object.keys(opts).length === 0) {
+        return;
+    }
+    const tz = policy.value.timezone;
+    if (!tz || !(tz in opts)) {
+        policy.value.timezone = 'UTC' in opts ? 'UTC' : Object.keys(opts)[0] ?? 'UTC';
+    }
+}
 
 function normalizeCutoffHhMm(raw: string): string {
     const trimmed = raw.trim();
@@ -82,6 +97,7 @@ async function loadPolicy(): Promise<void> {
             'Failed to load time-entry edit policy',
             (response) => {
                 policy.value = response.data.data;
+                ensurePolicyTimezoneInSelectOptions();
                 syncCutoffPickerFromPolicy();
             }
         );
@@ -128,7 +144,7 @@ async function savePolicy(): Promise<void> {
         <template #description>
             Restrict how long members can edit or delete their own past time entries. Admins with
             full time-entry permissions are not affected. Use Members → Edit overrides for temporary
-            access.
+            access to a chosen calendar day (in this policy’s timezone) until a set end time.
         </template>
 
         <template #form>
@@ -160,15 +176,24 @@ async function savePolicy(): Promise<void> {
                 </Field>
                 <Field>
                     <FieldLabel for="policyTimezone">Timezone</FieldLabel>
-                    <input
+                    <select
                         id="policyTimezone"
                         v-model="policy.timezone"
-                        type="text"
-                        placeholder="e.g. Asia/Karachi"
-                        class="w-full rounded-md border border-input bg-background px-3 py-2" />
+                        name="timezone"
+                        required
+                        class="block w-full border-input-border bg-input-background text-text-primary focus:border-input-border-active rounded-md shadow-sm"
+                        :disabled="!hasOrganization">
+                        <option value="" disabled>Select a Timezone</option>
+                        <option
+                            v-for="(timezoneTranslated, timezoneKey) in timezoneOptions"
+                            :key="timezoneKey"
+                            :value="timezoneKey">
+                            {{ timezoneTranslated }}
+                        </option>
+                    </select>
                 </Field>
                 <p class="text-sm text-text-secondary col-span-6 sm:col-span-4">
-                    To grant temporary edit access to a specific member, use
+                    To grant temporary edit access for one locked day to a specific member, use
                     <strong>Members</strong> → <strong>Edit overrides</strong>.
                 </p>
             </div>
@@ -176,7 +201,7 @@ async function savePolicy(): Promise<void> {
 
         <template #actions>
             <PrimaryButton type="submit" :disabled="savingPolicy || !hasOrganization">
-                Save edit lock policy
+                Save
             </PrimaryButton>
         </template>
     </FormSection>

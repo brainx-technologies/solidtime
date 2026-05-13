@@ -1,6 +1,6 @@
 <script setup lang="ts">
 import SecondaryButton from '@/packages/ui/src/Buttons/SecondaryButton.vue';
-import { formatDateTimeLocalized } from '@/packages/ui/src/utils/time';
+import { formatDate, formatDateTimeLocalized } from '@/packages/ui/src/utils/time';
 import { storeToRefs } from 'pinia';
 import { onMounted, ref } from 'vue';
 import { useNotificationsStore } from '@/utils/notification';
@@ -15,7 +15,7 @@ const { organization } = storeToRefs(orgStore);
 
 const OVERRIDE_PAGE_TITLE = 'Time entry edit overrides';
 const OVERRIDE_PAGE_DESCRIPTION =
-    'When your organization uses a past-entry edit lock, use Add override in the header to grant a member temporary access until a chosen date and time (stored in UTC; shown in your timezone).';
+    'When your organization uses a past-entry edit lock, use Add override in the header to grant a member temporary access to edit their own entries for one calendar day (in the lock policy timezone) until a chosen end time (stored in UTC; shown in your timezone).';
 
 const { handleApiRequestNotifications } = useNotificationsStore();
 const organizationId = getCurrentOrganizationId();
@@ -24,6 +24,7 @@ type MemberOverride = {
     id: string;
     member_id: string;
     member_name: string;
+    applies_on: string;
     editable_until: string;
 };
 
@@ -56,6 +57,10 @@ onMounted(async () => {
     }
     await loadOverrides();
 });
+
+function formatAppliesOnDisplay(isoDate: string): string {
+    return formatDate(isoDate, organization.value?.date_format);
+}
 
 function formatOverrideDisplay(isoUtc: string): string {
     return formatDateTimeLocalized(
@@ -103,12 +108,13 @@ defineExpose({
                 <div
                     class="grid min-w-full"
                     data-testid="member_time_entry_override_table"
-                    style="grid-template-columns: minmax(0, 1.5fr) minmax(0, 1.5fr) 7rem">
+                    style="grid-template-columns: minmax(0, 1.5fr) minmax(0, 1fr) minmax(0, 1.5fr) 7rem">
                     <TableHeading>
                         <div
                             class="px-3 py-1.5 text-left text-text-tertiary pl-4 sm:pl-6 lg:pl-8 3xl:pl-12">
                             Member
                         </div>
+                        <div class="px-3 py-1.5 text-left text-text-tertiary">Unlock day</div>
                         <div class="px-3 py-1.5 text-left text-text-tertiary">Editable until</div>
                         <div
                             class="relative py-1.5 pl-3 pr-4 sm:pr-6 lg:pr-8 3xl:pr-12 text-right text-text-tertiary bg-row-heading-background">
@@ -118,7 +124,7 @@ defineExpose({
 
                     <template v-if="overrides.length === 0">
                         <div
-                            class="col-span-3 py-12 text-center text-sm text-text-secondary bg-row-background">
+                            class="col-span-4 py-12 text-center text-sm text-text-secondary bg-row-background">
                             No active overrides. Use Add override when a member needs temporary access
                             after the edit lock.
                         </div>
@@ -129,6 +135,10 @@ defineExpose({
                             <div
                                 class="min-w-0 px-3 py-4 text-sm text-text-primary pl-4 sm:pl-6 lg:pl-8 3xl:pl-12">
                                 <span class="font-medium truncate block">{{ override.member_name }}</span>
+                            </div>
+                            <div
+                                class="min-w-0 px-3 py-4 text-sm text-text-secondary whitespace-nowrap">
+                                {{ formatAppliesOnDisplay(override.applies_on) }}
                             </div>
                             <div
                                 class="min-w-0 px-3 py-4 text-sm text-text-secondary whitespace-nowrap">

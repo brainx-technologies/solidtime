@@ -30,6 +30,10 @@ class MemberTimeEntryEditOverrideStoreRequest extends BaseFormRequest
                     return $builder->whereBelongsTo($this->organization, 'organization');
                 })->uuid(),
             ],
+            'applies_on' => [
+                'required',
+                'date_format:Y-m-d',
+            ],
             'editable_until' => [
                 'required',
                 'date',

@@ -17,6 +17,7 @@ import MemberTimeEntryEditOverrides from '@/Pages/Members/Partials/MemberTimeEnt
 import MemberTimeEntryEditOverrideCreateModal from '@/Components/Common/Member/MemberTimeEntryEditOverrideCreateModal.vue';
 import {
     canCreateInvitations,
+    canManageMemberTimeEntryOverrides,
     canUpdateMembers,
 } from '@/utils/permissions';
 import { useStorage } from '@vueuse/core';
@@ -68,7 +69,9 @@ function handleSort(column: SortColumn, direction: SortDirection) {
                     <TabBarItem value="all">All</TabBarItem>
                     <TabBarItem value="groups">Groups</TabBarItem>
                     <TabBarItem value="invitations">Invitations</TabBarItem>
-                    <TabBarItem v-if="canUpdateMembers()" value="overrides">Edit overrides</TabBarItem>
+                    <TabBarItem v-if="canManageMemberTimeEntryOverrides()" value="overrides"
+                        >Edit overrides</TabBarItem
+                    >
                 </TabBar>
             </div>
             <div class="flex items-center space-x-3">
@@ -79,7 +82,7 @@ function handleSort(column: SortColumn, direction: SortDirection) {
                     >Create group</SecondaryButton
                 >
                 <SecondaryButton
-                    v-if="activeTab === 'overrides' && canUpdateMembers()"
+                    v-if="activeTab === 'overrides' && canManageMemberTimeEntryOverrides()"
                     :icon="PlusIcon"
                     data-testid="members_add_override"
                     @click="createOverride = true"

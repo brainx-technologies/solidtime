@@ -4437,6 +4437,7 @@ class TimeEntryEndpointTest extends ApiEndpointTestAbstract
         MemberTimeEntryEditOverride::query()->create([
             'organization_id' => $data->organization->getKey(),
             'member_id' => $data->member->getKey(),
+            'applies_on' => '2026-05-07',
             'editable_until' => Carbon::parse('2026-05-08 11:00:00', 'Europe/Berlin')->utc(),
         ]);
         $timeEntry = TimeEntry::factory()->forOrganization($data->organization)->forMember($data->member)->create([
@@ -4455,6 +4456,46 @@ class TimeEntryEndpointTest extends ApiEndpointTestAbstract
         $this->assertDatabaseHas(TimeEntry::class, [
             'id' => $timeEntry->getKey(),
             'description' => 'Updated with override',
+        ]);
+    }
+
+    public function test_update_endpoint_blocks_employee_when_override_applies_on_differs_from_entry_start_date(): void
+    {
+        // Arrange: active override is for a different calendar day than the entry's start (policy TZ)
+        $data = $this->createUserWithRole(Role::Employee);
+        OrganizationTimeEntryEditPolicy::query()->create([
+            'organization_id' => $data->organization->getKey(),
+            'enabled' => true,
+            'lock_after_days' => 1,
+            'cutoff_time' => '09:00:00',
+            'timezone' => 'Europe/Berlin',
+        ]);
+        $data->user->timezone = 'Europe/Berlin';
+        $data->user->save();
+        $this->travelTo(Carbon::parse('2026-05-08 10:30:00', 'Europe/Berlin')->utc());
+        MemberTimeEntryEditOverride::query()->create([
+            'organization_id' => $data->organization->getKey(),
+            'member_id' => $data->member->getKey(),
+            'applies_on' => '2026-05-06',
+            'editable_until' => Carbon::parse('2026-05-08 11:00:00', 'Europe/Berlin')->utc(),
+        ]);
+        $timeEntry = TimeEntry::factory()->forOrganization($data->organization)->forMember($data->member)->create([
+            'start' => Carbon::parse('2026-05-07 08:00:00', 'Europe/Berlin')->utc(),
+            'end' => Carbon::parse('2026-05-07 09:00:00', 'Europe/Berlin')->utc(),
+        ]);
+        Passport::actingAs($data->user);
+
+        // Act
+        $response = $this->putJson(route('api.v1.time-entries.update', [$data->organization->getKey(), $timeEntry->getKey()]), [
+            'description' => 'Should fail',
+        ]);
+
+        // Assert
+        $response->assertStatus(400);
+        $response->assertExactJson([
+            'error' => true,
+            'key' => 'time_entry_edit_window_expired',
+            'message' => 'You can no longer edit this time entry. Ask an admin for temporary edit approval.',
         ]);
     }
 

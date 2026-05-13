@@ -131,6 +131,7 @@ class JetstreamServiceProvider extends ServiceProvider
             'members:make-placeholder',
             'members:merge-into',
             'members:update',
+            'member:time-entry-override',
             'members:delete',
             'billing',
             'reports:view',
@@ -197,6 +198,7 @@ class JetstreamServiceProvider extends ServiceProvider
             'members:merge-into',
             'members:delete',
             'members:update',
+            'member:time-entry-override',
             'reports:view',
             'reports:create',
             'reports:update',
@@ -330,6 +332,7 @@ class JetstreamServiceProvider extends ServiceProvider
                         'currencies' => array_map(function (Currency $currency): string {
                             return $currency->getName();
                         }, ISOCurrencyProvider::getInstance()->getAvailableCurrencies()),
+                        'timezones' => $this->app->get(TimezoneService::class)->getSelectOptions(),
                     ]);
                 }
             );

@@ -21,12 +21,13 @@ class MemberTimeEntryEditOverrideController extends Controller
      */
     public function index(Organization $organization): AnonymousResourceCollection
     {
-        $this->checkPermission($organization, 'members:update');
+        $this->checkPermission($organization, 'member:time-entry-override');
 
         $overrides = MemberTimeEntryEditOverride::query()
             ->whereBelongsTo($organization, 'organization')
             ->with('member.user')
-            ->orderBy('editable_until', 'desc')
+            ->orderByDesc('applies_on')
+            ->orderByDesc('editable_until')
             ->get();
 
         return MemberTimeEntryEditOverrideResource::collection($overrides);
@@ -37,12 +38,13 @@ class MemberTimeEntryEditOverrideController extends Controller
      */
     public function store(Organization $organization, MemberTimeEntryEditOverrideStoreRequest $request): MemberTimeEntryEditOverrideResource
     {
-        $this->checkPermission($organization, 'members:update');
+        $this->checkPermission($organization, 'member:time-entry-override');
 
         $override = MemberTimeEntryEditOverride::query()->updateOrCreate(
             [
                 'organization_id' => $organization->getKey(),
                 'member_id' => (string) $request->input('member_id'),
+                'applies_on' => Carbon::parse((string) $request->input('applies_on'))->startOfDay(),
             ],
             [
                 'editable_until' => Carbon::parse((string) $request->input('editable_until')),
@@ -58,7 +60,7 @@ class MemberTimeEntryEditOverrideController extends Controller
      */
     public function update(Organization $organization, MemberTimeEntryEditOverride $memberTimeEntryEditOverride, MemberTimeEntryEditOverrideUpdateRequest $request): MemberTimeEntryEditOverrideResource
     {
-        $this->checkPermission($organization, 'members:update');
+        $this->checkPermission($organization, 'member:time-entry-override');
         $this->assertBelongsToOrganization($organization, $memberTimeEntryEditOverride);
 
         $memberTimeEntryEditOverride->editable_until = Carbon::parse((string) $request->input('editable_until'));
@@ -73,7 +75,7 @@ class MemberTimeEntryEditOverrideController extends Controller
      */
     public function destroy(Organization $organization, MemberTimeEntryEditOverride $memberTimeEntryEditOverride): JsonResponse
     {
-        $this->checkPermission($organization, 'members:update');
+        $this->checkPermission($organization, 'member:time-entry-override');
         $this->assertBelongsToOrganization($organization, $memberTimeEntryEditOverride);
 
         $memberTimeEntryEditOverride->delete();

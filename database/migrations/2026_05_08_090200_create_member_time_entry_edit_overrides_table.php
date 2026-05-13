@@ -17,10 +17,12 @@ return new class extends Migration
             $table->uuid('id')->primary();
             $table->foreignUuid('organization_id')->constrained('organizations')->cascadeOnDelete();
             $table->foreignUuid('member_id')->constrained('members')->cascadeOnDelete();
+            /** Calendar date (policy timezone) for which locked own entries may be edited while the override is active */
+            $table->date('applies_on');
             $table->timestamp('editable_until');
             $table->timestamps();
 
-            $table->unique(['organization_id', 'member_id']);
+            $table->unique(['organization_id', 'member_id', 'applies_on']);
         });
     }
 

@@ -15,6 +15,7 @@ use OwenIt\Auditing\Contracts\Auditable as AuditableContract;
  * @property string $id
  * @property string $organization_id
  * @property string $member_id
+ * @property Carbon $applies_on
  * @property Carbon $editable_until
  * @property Carbon|null $created_at
  * @property Carbon|null $updated_at
@@ -32,6 +33,7 @@ class MemberTimeEntryEditOverride extends Model implements AuditableContract
     protected $fillable = [
         'organization_id',
         'member_id',
+        'applies_on',
         'editable_until',
     ];
 
@@ -39,6 +41,7 @@ class MemberTimeEntryEditOverride extends Model implements AuditableContract
      * @var array<string, string>
      */
     protected $casts = [
+        'applies_on' => 'date',
         'editable_until' => 'datetime',
     ];
 

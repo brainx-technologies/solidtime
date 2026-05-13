@@ -1,7 +1,7 @@
 <script setup lang="ts">
 import SecondaryButton from '@/packages/ui/src/Buttons/SecondaryButton.vue';
 import DialogModal from '@/packages/ui/src/DialogModal.vue';
-import { ref, watch } from 'vue';
+import { computed, ref, watch } from 'vue';
 import PrimaryButton from '@/packages/ui/src/Buttons/PrimaryButton.vue';
 import { Field, FieldLabel } from '@/packages/ui/src/field';
 import DatePicker from '@/packages/ui/src/Input/DatePicker.vue';
@@ -28,15 +28,25 @@ const organizationId = getCurrentOrganizationId();
 const selectedMemberId = ref('');
 const savingOverride = ref(false);
 
+/** Default: one hour from now (usually still “today”, always strictly in the future for `after:now`). */
 function defaultEditableUntilLocal(): string {
-    return getLocalizedDayJs(dayjs.utc().add(1, 'day').toISOString()).format();
+    return getLocalizedDayJs().add(1, 'hour').format();
 }
 
+function defaultAppliesOn(): string {
+    return getLocalizedDayJs().startOf('day').format();
+}
+
+const localAppliesOn = ref(defaultAppliesOn());
 const localEditableUntil = ref(defaultEditableUntilLocal());
+
+/** Earliest selectable calendar day for “Editable until” (cannot pick a past date; time must still be in the future when saving). */
+const minEditableUntilDayYmd = computed(() => getLocalizedDayJs().format('YYYY-MM-DD'));
 
 watch(show, (value) => {
     if (value) {
         selectedMemberId.value = '';
+        localAppliesOn.value = defaultAppliesOn();
         localEditableUntil.value = defaultEditableUntilLocal();
     }
 });
@@ -51,7 +61,12 @@ async function submit() {
         return;
     }
     if (!utcMoment.isAfter(dayjs.utc())) {
-        addNotification('error', 'Choose a date and time in the future');
+        addNotification('error', 'Choose a date and time strictly in the future');
+        return;
+    }
+    const appliesMoment = getLocalizedDayJs(localAppliesOn.value);
+    if (!localAppliesOn.value || !appliesMoment.isValid()) {
+        addNotification('error', 'Please choose a valid unlock day');
         return;
     }
     savingOverride.value = true;
@@ -63,6 +78,7 @@ async function submit() {
                     `/api/v1/organizations/${organizationId}/member-time-entry-edit-overrides`,
                     {
                         member_id: selectedMemberId.value,
+                        applies_on: appliesMoment.format('YYYY-MM-DD'),
                         editable_until: editableUntilForApi,
                     }
                 ),
@@ -85,13 +101,23 @@ async function submit() {
 
         <template #content>
             <p class="mb-4 text-text-secondary">
-                Grant this member temporary permission to edit their own locked past entries until
-                the date and time you choose (stored in UTC; shown in your timezone).
+                Pick the calendar day (in the organization’s edit-lock timezone) whose locked entries
+                this member may edit, and when that permission ends. You can choose today for
+                “Editable until” as long as the time is still in the future. Values are stored in UTC
+                and shown in your timezone.
             </p>
             <div class="space-y-4 max-w-md">
                 <Field>
                     <FieldLabel>Member</FieldLabel>
                     <MemberCombobox v-model="selectedMemberId" />
+                </Field>
+                <Field>
+                    <FieldLabel>Unlock day</FieldLabel>
+                    <DatePicker
+                        v-model="localAppliesOn"
+                        class="w-full"
+                        size="sm"
+                        data-testid="member_override_applies_on_date"></DatePicker>
                 </Field>
                 <Field>
                     <FieldLabel>Editable until</FieldLabel>
@@ -105,6 +131,7 @@ async function submit() {
                             class="w-full"
                             size="sm"
                             tabindex="1"
+                            :min-date="minEditableUntilDayYmd"
                             data-testid="member_override_editable_until_date"></DatePicker>
                     </div>
                 </Field>
