@@ -265,6 +265,31 @@ class JetstreamServiceProvider extends ServiceProvider
             // 'invoice-settings:update',
         ])->description('Managers have full access to all projects, time entries, ect. but cannot manage the organization (add/remove member, edit the organization, ect.).');
 
+        Jetstream::role(Role::HR->value, 'HR', [
+            'charts:view:own',
+            'charts:view:all',
+            'projects:view',
+            'projects:view:all',
+            'project-members:view',
+            'tasks:view',
+            'tasks:view:all',
+            'time-entries:view:all',
+            'time-entries:view:own',
+            'time-entries:create:own',
+            'time-entries:update:own',
+            'time-entries:delete:own',
+            'tags:view',
+            'clients:view',
+            // 'clients:view:all',
+            'organizations:view',
+            'members:view',
+            'member:time-entry-override',
+            'reports:view',
+            'reports:create',
+            'reports:update',
+            'reports:delete',
+        ])->description('HR can view organization-wide charts, projects, tasks, tags, and time entries; manage their own time entries; view members and grant time-entry edit overrides; and create and manage reports. They cannot change projects, tasks, tags, or clients, manage invitations or invoices, or edit organization settings beyond viewing the organization.');
+
         Jetstream::role(Role::Employee->value, 'Employee', [
             'charts:view:own',
             'projects:view',

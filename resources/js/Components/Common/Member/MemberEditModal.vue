@@ -115,6 +115,8 @@ const roleDescriptionTexts = {
         'An employee is a user that is only using the application to track time, but has no administrative rights.',
     'placeholder':
         'Placeholder users can not do anything in the organization. They are not billed and can be used to remove users from the organization without deleting their time entries.',
+    'hr':
+        'HR can view organization-wide charts, projects, tasks, tags, and time entries; manage their own time entries; view members and grant time-entry edit overrides; and create and manage reports. They cannot change projects, tasks, tags, or clients, manage invitations or invoices, or edit organization settings beyond viewing the organization.',
 };
 
 const roleDescription = computed(() => {
