@@ -1,4 +1,5 @@
 import { usePage } from '@inertiajs/vue3';
+import { getCurrentMembershipId } from '@/utils/useUser';
 
 const page = usePage<{
     auth: {
@@ -73,8 +74,67 @@ export function canUpdateMembers() {
     return currentUserHasPermission('members:update');
 }
 
-export function canManageMemberTimeEntryOverrides() {
-    return currentUserHasPermission('member:time-entry-override');
+export function canViewMemberTimeEntryOverrides() {
+    return currentUserHasPermission('member:time-entry-override:view');
+}
+
+export function canCreateMemberTimeEntryOverrideAll() {
+    return currentUserHasPermission('member:time-entry-override:create:all');
+}
+
+export function canCreateMemberTimeEntryOverrideAllExceptOwn() {
+    return currentUserHasPermission('member:time-entry-override:create:all_except_own');
+}
+
+export function canUpdateMemberTimeEntryOverrideAll() {
+    return currentUserHasPermission('member:time-entry-override:update:all');
+}
+
+export function canUpdateMemberTimeEntryOverrideAllExceptOwn() {
+    return currentUserHasPermission('member:time-entry-override:update:all_except_own');
+}
+
+export function canUpdateMemberTimeEntryOverrides() {
+    return (
+        canUpdateMemberTimeEntryOverrideAll() || canUpdateMemberTimeEntryOverrideAllExceptOwn()
+    );
+}
+
+export function canDeleteMemberTimeEntryOverrideAll() {
+    return currentUserHasPermission('member:time-entry-override:delete:all');
+}
+
+export function canDeleteMemberTimeEntryOverrideAllExceptOwn() {
+    return currentUserHasPermission('member:time-entry-override:delete:all_except_own');
+}
+
+export function canDeleteMemberTimeEntryOverrides() {
+    return (
+        canDeleteMemberTimeEntryOverrideAll() || canDeleteMemberTimeEntryOverrideAllExceptOwn()
+    );
+}
+
+/** Delete row only if allowed for overrides whose beneficiary is `targetMemberId`. */
+export function canDeleteMemberTimeEntryOverrideForMember(targetMemberId: string) {
+    if (canDeleteMemberTimeEntryOverrideAll()) {
+        return true;
+    }
+    if (!canDeleteMemberTimeEntryOverrideAllExceptOwn()) {
+        return false;
+    }
+    const own = getCurrentMembershipId();
+    return own !== null && own !== targetMemberId;
+}
+
+/** Any permission that should surface the Members → Edit overrides tab or related UI. */
+export function canAccessMemberTimeEntryOverridesTab() {
+    return (
+        canViewMemberTimeEntryOverrides() ||
+        canCreateMemberTimeEntryOverrideAll() ||
+        canCreateMemberTimeEntryOverrideAllExceptOwn() ||
+        canUpdateMemberTimeEntryOverrides() ||
+        canDeleteMemberTimeEntryOverrides()
+    );
 }
 
 export function canDeleteMembers() {

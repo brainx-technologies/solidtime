@@ -24,6 +24,8 @@ class OrganizationController extends Controller
     {
         $this->checkPermission($organization, 'organizations:view');
 
+        $organization->loadMissing('timeEntryEditPolicy');
+
         $showBillableRate = $this->member($organization)->role !== Role::Employee->value || $organization->employees_can_see_billable_rates;
 
         return new OrganizationResource($organization, $showBillableRate);
@@ -73,6 +75,8 @@ class OrganizationController extends Controller
             $organization->billable_rate = $request->getBillableRate();
         }
         $organization->save();
+
+        $organization->loadMissing('timeEntryEditPolicy');
 
         if ($hasBillableRate && $oldBillableRate !== $request->getBillableRate()) {
             $billableRateService->updateTimeEntriesBillableRateForOrganization($organization);

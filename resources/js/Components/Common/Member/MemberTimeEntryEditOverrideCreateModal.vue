@@ -8,7 +8,11 @@ import DatePicker from '@/packages/ui/src/Input/DatePicker.vue';
 import TimePickerSimple from '@/packages/ui/src/Input/TimePickerSimple.vue';
 import { getLocalizedDayJs } from '@/packages/ui/src/utils/time';
 import { useNotificationsStore } from '@/utils/notification';
-import { getCurrentOrganizationId } from '@/utils/useUser';
+import {
+    canCreateMemberTimeEntryOverrideAll,
+    canCreateMemberTimeEntryOverrideAllExceptOwn,
+} from '@/utils/permissions';
+import { getCurrentMembershipId, getCurrentOrganizationId } from '@/utils/useUser';
 import axios from 'axios';
 import MemberCombobox from '@/Components/Common/Member/MemberCombobox.vue';
 import dayjs from 'dayjs';
@@ -42,6 +46,17 @@ const localEditableUntil = ref(defaultEditableUntilLocal());
 
 /** Earliest selectable calendar day for “Editable until” (cannot pick a past date; time must still be in the future when saving). */
 const minEditableUntilDayYmd = computed(() => getLocalizedDayJs().format('YYYY-MM-DD'));
+
+const excludedMemberIdsForOverrideCombobox = computed(() => {
+    if (
+        canCreateMemberTimeEntryOverrideAll() ||
+        !canCreateMemberTimeEntryOverrideAllExceptOwn()
+    ) {
+        return [];
+    }
+    const id = getCurrentMembershipId();
+    return id ? [id] : [];
+});
 
 watch(show, (value) => {
     if (value) {
@@ -109,7 +124,9 @@ async function submit() {
             <div class="space-y-4 max-w-md">
                 <Field>
                     <FieldLabel>Member</FieldLabel>
-                    <MemberCombobox v-model="selectedMemberId" />
+                    <MemberCombobox
+                        v-model="selectedMemberId"
+                        :excluded-member-ids="excludedMemberIdsForOverrideCombobox" />
                 </Field>
                 <Field>
                     <FieldLabel>Unlock day</FieldLabel>

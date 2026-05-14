@@ -25,10 +25,12 @@ const model = defineModel<string>({
 const props = withDefaults(
     defineProps<{
         hiddenMembers?: ProjectMember[];
+        excludedMemberIds?: string[];
         disabled?: boolean;
     }>(),
     {
         hiddenMembers: () => [] as ProjectMember[],
+        excludedMemberIds: () => [] as string[],
         disabled: false,
     }
 );
@@ -52,6 +54,7 @@ const filteredMembers = computed<Member[]>(() => {
         return (
             member.name.toLowerCase().includes(searchValue.value.toLowerCase().trim() || '') &&
             !props.hiddenMembers.some((hiddenMember) => hiddenMember.member_id === member.id) &&
+            !props.excludedMemberIds.includes(member.id) &&
             member.is_placeholder === false
         );
     });

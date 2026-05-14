@@ -20,6 +20,7 @@ return new class extends Migration
             /** Calendar date (policy timezone) for which locked own entries may be edited while the override is active */
             $table->date('applies_on');
             $table->timestamp('editable_until');
+            $table->foreignUuid('granted_by_user_id')->nullable()->constrained('users')->nullOnDelete();
             $table->timestamps();
 
             $table->unique(['organization_id', 'member_id', 'applies_on']);

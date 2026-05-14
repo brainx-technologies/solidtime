@@ -354,6 +354,7 @@ const OrganizationResource = z
         date_format: DateFormat,
         interval_format: IntervalFormat,
         time_format: TimeFormat,
+        time_entry_edit_policy_enabled: z.boolean(),
     })
     .passthrough();
 const OrganizationUpdateRequest = z

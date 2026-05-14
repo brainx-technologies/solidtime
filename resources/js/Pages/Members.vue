@@ -5,7 +5,8 @@ import { PlusIcon } from '@heroicons/vue/16/solid';
 import { UserGroupIcon } from '@heroicons/vue/20/solid';
 import SecondaryButton from '@/packages/ui/src/Buttons/SecondaryButton.vue';
 import { TabBar, TabBarItem } from '@/packages/ui/src';
-import { ref } from 'vue';
+import { storeToRefs } from 'pinia';
+import { computed, onMounted, ref, watch } from 'vue';
 import MemberTable from '@/Components/Common/Member/MemberTable.vue';
 import MemberInviteModal from '@/Components/Common/Member/MemberInviteModal.vue';
 import type { Role } from '@/types/jetstream';
@@ -16,17 +17,30 @@ import MemberGroupCreateModal from '@/Components/Common/MemberGroup/MemberGroupC
 import MemberTimeEntryEditOverrides from '@/Pages/Members/Partials/MemberTimeEntryEditOverrides.vue';
 import MemberTimeEntryEditOverrideCreateModal from '@/Components/Common/Member/MemberTimeEntryEditOverrideCreateModal.vue';
 import {
+    canAccessMemberTimeEntryOverridesTab,
     canCreateInvitations,
-    canManageMemberTimeEntryOverrides,
+    canCreateMemberTimeEntryOverrideAll,
+    canCreateMemberTimeEntryOverrideAllExceptOwn,
     canUpdateMembers,
 } from '@/utils/permissions';
+import { useOrganizationStore } from '@/utils/useOrganization';
+import { getCurrentOrganizationId } from '@/utils/useUser';
 import { useStorage } from '@vueuse/core';
 import type { SortColumn, SortDirection } from '@/Components/Common/Member/MemberTable.vue';
+
+const orgStore = useOrganizationStore();
+const { organization } = storeToRefs(orgStore);
 
 const inviteMember = ref(false);
 const createGroup = ref(false);
 const createOverride = ref(false);
 const editOverridesRef = ref<InstanceType<typeof MemberTimeEntryEditOverrides> | null>(null);
+
+const showMemberTimeEntryOverridesTab = computed(
+    () =>
+        canAccessMemberTimeEntryOverridesTab() &&
+        organization.value?.time_entry_edit_policy_enabled === true
+);
 
 function onOverrideCreated() {
     editOverridesRef.value?.refresh();
@@ -37,6 +51,12 @@ defineProps<{
 }>();
 
 const activeTab = ref<'all' | 'invitations' | 'groups' | 'overrides'>('all');
+
+watch(showMemberTimeEntryOverridesTab, (show) => {
+    if (!show && activeTab.value === 'overrides') {
+        activeTab.value = 'all';
+    }
+});
 
 interface MemberTableState {
     sortColumn: SortColumn;
@@ -57,6 +77,12 @@ function handleSort(column: SortColumn, direction: SortDirection) {
     tableState.value.sortColumn = column;
     tableState.value.sortDirection = direction;
 }
+
+onMounted(async () => {
+    if (canAccessMemberTimeEntryOverridesTab() && getCurrentOrganizationId()) {
+        await orgStore.fetchOrganization();
+    }
+});
 </script>
 
 <template>
@@ -69,7 +95,7 @@ function handleSort(column: SortColumn, direction: SortDirection) {
                     <TabBarItem value="all">All</TabBarItem>
                     <TabBarItem value="groups">Groups</TabBarItem>
                     <TabBarItem value="invitations">Invitations</TabBarItem>
-                    <TabBarItem v-if="canManageMemberTimeEntryOverrides()" value="overrides"
+                    <TabBarItem v-if="showMemberTimeEntryOverridesTab" value="overrides"
                         >Edit overrides</TabBarItem
                     >
                 </TabBar>
@@ -82,7 +108,12 @@ function handleSort(column: SortColumn, direction: SortDirection) {
                     >Create group</SecondaryButton
                 >
                 <SecondaryButton
-                    v-if="activeTab === 'overrides' && canManageMemberTimeEntryOverrides()"
+                    v-if="
+                        showMemberTimeEntryOverridesTab &&
+                        activeTab === 'overrides' &&
+                        (canCreateMemberTimeEntryOverrideAll() ||
+                            canCreateMemberTimeEntryOverrideAllExceptOwn())
+                    "
                     :icon="PlusIcon"
                     data-testid="members_add_override"
                     @click="createOverride = true"
@@ -114,7 +145,7 @@ function handleSort(column: SortColumn, direction: SortDirection) {
         <MemberGroupTable v-if="activeTab === 'groups'"></MemberGroupTable>
         <InvitationTable v-if="activeTab === 'invitations'"></InvitationTable>
         <MemberTimeEntryEditOverrides
-            v-if="activeTab === 'overrides'"
+            v-if="showMemberTimeEntryOverridesTab && activeTab === 'overrides'"
             ref="editOverridesRef"></MemberTimeEntryEditOverrides>
     </AppLayout>
 </template>

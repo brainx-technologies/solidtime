@@ -4,6 +4,7 @@ import { formatDate, formatDateTimeLocalized } from '@/packages/ui/src/utils/tim
 import { storeToRefs } from 'pinia';
 import { onMounted, ref } from 'vue';
 import { useNotificationsStore } from '@/utils/notification';
+import { canDeleteMemberTimeEntryOverrideForMember, canViewMemberTimeEntryOverrides } from '@/utils/permissions';
 import { useOrganizationStore } from '@/utils/useOrganization';
 import { getCurrentOrganizationId } from '@/utils/useUser';
 import axios from 'axios';
@@ -23,7 +24,9 @@ const organizationId = getCurrentOrganizationId();
 type MemberOverride = {
     id: string;
     member_id: string;
-    member_name: string;
+    member_name: string | null;
+    granted_by_user_id: string | null;
+    granted_by_name: string | null;
     applies_on: string;
     editable_until: string;
 };
@@ -31,7 +34,7 @@ type MemberOverride = {
 const overrides = ref<MemberOverride[]>([]);
 
 async function loadOverrides() {
-    if (!organizationId) {
+    if (!organizationId || !canViewMemberTimeEntryOverrides()) {
         return;
     }
     try {
@@ -103,12 +106,22 @@ defineExpose({
             </p>
         </header>
 
-        <div class="flow-root max-w-[100vw] overflow-x-auto">
+        <div
+            v-if="!canViewMemberTimeEntryOverrides()"
+            class="px-4 sm:px-6 lg:px-8 3xl:px-12 py-12 text-center text-sm text-text-secondary bg-row-background">
+            You do not have permission to view existing overrides. You can still create one from
+            <span class="font-medium text-text-primary">Add override</span> when your role allows it.
+        </div>
+
+        <div v-else class="flow-root max-w-[100vw] overflow-x-auto">
             <div class="inline-block min-w-full align-middle">
                 <div
                     class="grid min-w-full"
                     data-testid="member_time_entry_override_table"
-                    style="grid-template-columns: minmax(0, 1.5fr) minmax(0, 1fr) minmax(0, 1.5fr) 7rem">
+                    style="
+                        grid-template-columns:
+                            minmax(0, 1.5fr) minmax(0, 1fr) minmax(0, 1.5fr) minmax(0, 1.25fr) 7rem;
+                    ">
                     <TableHeading>
                         <div
                             class="px-3 py-1.5 text-left text-text-tertiary pl-4 sm:pl-6 lg:pl-8 3xl:pl-12">
@@ -116,6 +129,7 @@ defineExpose({
                         </div>
                         <div class="px-3 py-1.5 text-left text-text-tertiary">Unlock day</div>
                         <div class="px-3 py-1.5 text-left text-text-tertiary">Editable until</div>
+                        <div class="px-3 py-1.5 text-left text-text-tertiary">Allowed by</div>
                         <div
                             class="relative py-1.5 pl-3 pr-4 sm:pr-6 lg:pr-8 3xl:pr-12 text-right text-text-tertiary bg-row-heading-background">
                             <span class="sr-only">Actions</span>
@@ -124,7 +138,7 @@ defineExpose({
 
                     <template v-if="overrides.length === 0">
                         <div
-                            class="col-span-4 py-12 text-center text-sm text-text-secondary bg-row-background">
+                            class="col-span-5 py-12 text-center text-sm text-text-secondary bg-row-background">
                             No active overrides. Use Add override when a member needs temporary access
                             after the edit lock.
                         </div>
@@ -145,8 +159,14 @@ defineExpose({
                                 {{ formatOverrideDisplay(override.editable_until) }}
                             </div>
                             <div
+                                class="min-w-0 px-3 py-4 text-sm text-text-secondary truncate"
+                                :title="override.granted_by_name ?? undefined">
+                                {{ override.granted_by_name ?? '—' }}
+                            </div>
+                            <div
                                 class="relative flex items-center justify-end px-3 py-4 text-right text-sm font-medium pr-4 sm:pr-6 lg:pr-8 3xl:pr-12">
                                 <SecondaryButton
+                                    v-if="canDeleteMemberTimeEntryOverrideForMember(override.member_id)"
                                     size="small"
                                     data-testid="member_override_remove"
                                     @click="removeOverride(override.id)">

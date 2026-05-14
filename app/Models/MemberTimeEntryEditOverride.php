@@ -17,10 +17,12 @@ use OwenIt\Auditing\Contracts\Auditable as AuditableContract;
  * @property string $member_id
  * @property Carbon $applies_on
  * @property Carbon $editable_until
+ * @property string|null $granted_by_user_id
  * @property Carbon|null $created_at
  * @property Carbon|null $updated_at
  * @property-read Organization $organization
  * @property-read Member $member
+ * @property-read User|null $grantedByUser
  */
 class MemberTimeEntryEditOverride extends Model implements AuditableContract
 {
@@ -35,6 +37,7 @@ class MemberTimeEntryEditOverride extends Model implements AuditableContract
         'member_id',
         'applies_on',
         'editable_until',
+        'granted_by_user_id',
     ];
 
     /**
@@ -59,5 +62,13 @@ class MemberTimeEntryEditOverride extends Model implements AuditableContract
     public function member(): BelongsTo
     {
         return $this->belongsTo(Member::class, 'member_id');
+    }
+
+    /**
+     * @return BelongsTo<User, $this>
+     */
+    public function grantedByUser(): BelongsTo
+    {
+        return $this->belongsTo(User::class, 'granted_by_user_id');
     }
 }

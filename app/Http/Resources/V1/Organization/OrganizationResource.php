@@ -71,6 +71,8 @@ class OrganizationResource extends BaseResource
             'interval_format' => $this->resource->interval_format->value,
             /** @var TimeFormat $time_format Time format */
             'time_format' => $this->resource->time_format->value,
+            /** @var bool $time_entry_edit_policy_enabled Whether the organization's past-entry edit lock policy exists and is enabled */
+            'time_entry_edit_policy_enabled' => $this->resource->timeEntryEditPolicy?->enabled ?? false,
         ];
     }
 }
