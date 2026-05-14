@@ -283,6 +283,7 @@ class JetstreamServiceProvider extends ServiceProvider
             'time-entries:view:own',
             'time-entries:create:own',
             'time-entries:update:own',
+            'time-entries_billable:update:all',
             'time-entries:delete:own',
             'tags:view',
             'clients:view',
