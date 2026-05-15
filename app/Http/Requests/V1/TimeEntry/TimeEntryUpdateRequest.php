@@ -10,10 +10,12 @@ use App\Models\Organization;
 use App\Models\Project;
 use App\Models\Tag;
 use App\Models\Task;
+use App\Models\TimeEntry;
 use App\Service\PermissionStore;
 use Illuminate\Contracts\Validation\ValidationRule;
 use Illuminate\Database\Eloquent\Builder;
 use Illuminate\Support\Facades\Auth;
+use Illuminate\Validation\Validator;
 use Korridor\LaravelModelValidationRules\Rules\ExistsEloquent;
 
 /**
@@ -39,9 +41,9 @@ class TimeEntryUpdateRequest extends BaseFormRequest
             ],
             // ID of the project that the time entry should belong to
             'project_id' => [
+                'sometimes',
                 'nullable',
                 'string',
-                'required_with:task_id',
                 ExistsEloquent::make(Project::class, null, function (Builder $builder): Builder {
                     /** @var Builder<Project> $builder */
                     $builder = $builder->whereBelongsTo($this->organization, 'organization');
@@ -86,6 +88,7 @@ class TimeEntryUpdateRequest extends BaseFormRequest
             ],
             // Description of time entry
             'description' => [
+                'sometimes',
                 'nullable',
                 'string',
                 'max:5000',
@@ -103,5 +106,44 @@ class TimeEntryUpdateRequest extends BaseFormRequest
                 })->uuid(),
             ],
         ];
+    }
+
+    public function withValidator(Validator $validator): void
+    {
+        $validator->after(function (Validator $validator): void {
+            if (! $this->hasAny(['project_id', 'description'])) {
+                return;
+            }
+
+            /** @var TimeEntry $timeEntry */
+            $timeEntry = $this->route('timeEntry');
+
+            if ($this->has('project_id')) {
+                $projectId = $this->input('project_id');
+                if ($projectId === '') {
+                    $projectId = null;
+                }
+
+                if (filled($timeEntry->project_id) && ! filled($projectId)) {
+                    $validator->errors()->add(
+                        'project_id',
+                        __('validation.time_entry_project_cannot_be_removed', [
+                            'attribute' => __('validation.entities.project'),
+                        ]),
+                    );
+                }
+            }
+
+            if ($this->has('description')) {
+                if (filled($timeEntry->description) && ! filled($this->input('description'))) {
+                    $validator->errors()->add(
+                        'description',
+                        __('validation.time_entry_description_cannot_be_removed', [
+                            'attribute' => 'description',
+                        ]),
+                    );
+                }
+            }
+        });
     }
 }

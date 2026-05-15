@@ -51,9 +51,9 @@ class TimeEntryUpdateMultipleRequest extends BaseFormRequest
             ],
             // ID of the project that the time entry should belong to
             'changes.project_id' => [
-                'nullable',
+                'sometimes',
+                'required',
                 'string',
-                'required_with:task_id',
                 ExistsEloquent::make(Project::class, null, function (Builder $builder): Builder {
                     /** @var Builder<Project> $builder */
                     $builder = $builder->whereBelongsTo($this->organization, 'organization');
@@ -88,7 +88,9 @@ class TimeEntryUpdateMultipleRequest extends BaseFormRequest
             ],
             // Description of time entry
             'changes.description' => [
-                'nullable',
+                'sometimes',
+                'required',
+                'filled',
                 'string',
                 'max:5000',
             ],
