@@ -33,21 +33,23 @@ class MemberService
         $this->userService = $userService;
     }
 
-    public function addMember(User $user, Organization $organization, Role $role, bool $asSuperAdmin = false): Member
+    public function addMember(User $user, Organization $organization, Role $role, bool $asSuperAdmin = false, bool $setAsCurrentOrganization = true): Member
     {
         if (! $asSuperAdmin) {
             AddingTeamMember::dispatch($organization, $user);
         }
 
         $member = new Member;
-        DB::transaction(function () use ($organization, $user, $role, &$member): void {
+        DB::transaction(function () use ($organization, $user, $role, $setAsCurrentOrganization, &$member): void {
             $member->user()->associate($user);
             $member->organization()->associate($organization);
             $member->role = $role->value;
             $member->save();
 
-            $user->currentOrganization()->associate($organization);
-            $user->save();
+            if ($setAsCurrentOrganization) {
+                $user->currentOrganization()->associate($organization);
+                $user->save();
+            }
         });
 
         if (! $asSuperAdmin) {

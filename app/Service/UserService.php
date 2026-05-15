@@ -34,7 +34,9 @@ class UserService
         ?DateFormat $dateFormat = null,
         ?IntervalFormat $intervalFormat = null,
         ?TimeFormat $timeFormat = null,
-        bool $verifyEmail = false
+        bool $verifyEmail = false,
+        ?Organization $assignOrganization = null,
+        ?Role $assignOrganizationRole = Role::Employee,
     ): User {
         $user = new User;
         $user->name = $name;
@@ -46,6 +48,17 @@ class UserService
             $user->email_verified_at = Carbon::now();
         }
         $user->save();
+
+        if ($assignOrganization !== null) {
+            app(MemberService::class)->addMember(
+                $user,
+                $assignOrganization,
+                $assignOrganizationRole ?? Role::Employee,
+                true,
+            );
+
+            return $user;
+        }
 
         $organization = app(OrganizationService::class)->createOrganization(
             $this->getOrganizationNameForUserName($user->name),

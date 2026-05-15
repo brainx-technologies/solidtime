@@ -97,6 +97,60 @@ class UserServiceTest extends TestCase
         }
     }
 
+    public function test_create_user_with_assign_organization_skips_personal_org_and_sets_current(): void
+    {
+        // Arrange
+        $organization = Organization::factory()->create([
+            'personal_team' => false,
+        ]);
+        $userFake = User::factory()->make();
+
+        // Act
+        $user = $this->userService->createUser(
+            $userFake->name,
+            $userFake->email,
+            'password',
+            $userFake->timezone,
+            $userFake->week_start,
+            null,
+            assignOrganization: $organization,
+            assignOrganizationRole: Role::Manager,
+        );
+
+        // Assert
+        $this->assertSame(1, $user->organizations()->count());
+        $this->assertSame($organization->getKey(), $user->current_team_id);
+        $this->assertSame(0, $user->ownedTeams()->where('personal_team', true)->count());
+        $member = Member::query()
+            ->whereBelongsTo($user, 'user')
+            ->whereBelongsTo($organization, 'organization')
+            ->firstOrFail();
+        $this->assertSame(Role::Manager->value, $member->role);
+    }
+
+    public function test_create_user_without_assign_creates_personal_org_and_sets_current(): void
+    {
+        // Arrange
+        $userFake = User::factory()->make();
+
+        // Act
+        $user = $this->userService->createUser(
+            $userFake->name,
+            $userFake->email,
+            'password',
+            $userFake->timezone,
+            $userFake->week_start,
+            'EUR',
+        );
+
+        // Assert
+        $organization = $user->ownedTeams()->first();
+        $this->assertNotNull($organization);
+        $this->assertTrue($organization->personal_team);
+        $this->assertSame('EUR', $organization->currency);
+        $this->assertSame($organization->getKey(), $user->current_team_id);
+    }
+
     public function test_make_sure_user_has_current_organization_sets_current_organization_for_user_if_null(): void
     {
         // Arrange

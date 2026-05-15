@@ -10,6 +10,7 @@ use App\Models\Member;
 use App\Models\Organization;
 use App\Models\User;
 use Illuminate\Foundation\Testing\RefreshDatabase;
+use Illuminate\Support\Facades\Config;
 use Illuminate\Support\Facades\Event;
 use Tests\TestCase;
 
@@ -20,6 +21,7 @@ class CreateOrganizationTest extends TestCase
     public function test_organizations_can_be_created(): void
     {
         // Arrange
+        Config::set('app.enable_organization_creation', true);
         $user = User::factory()->withPersonalOrganization()->create();
         $this->actingAs($user);
         Event::fake([
@@ -44,5 +46,45 @@ class CreateOrganizationTest extends TestCase
         Event::assertDispatched(AfterCreateOrganization::class, function (AfterCreateOrganization $event) use ($newOrganization): bool {
             return $event->organization->is($newOrganization);
         });
+    }
+
+    public function test_organizations_can_not_be_created_when_disabled(): void
+    {
+        // Arrange
+        Config::set('app.enable_organization_creation', false);
+        $user = User::factory()->withPersonalOrganization()->create();
+        $this->actingAs($user);
+
+        // Act
+        $response = $this->post('/teams', [
+            'name' => 'Test Organization',
+        ]);
+
+        // Assert
+        $response->assertForbidden();
+        $this->assertCount(1, $user->fresh()->ownedTeams);
+    }
+
+    public function test_super_admin_can_create_organization_when_disabled_in_config(): void
+    {
+        // Arrange
+        Config::set('app.enable_organization_creation', false);
+        Config::set('auth.super_admins', ['admin@example.com']);
+        $user = User::factory()->withPersonalOrganization()->create([
+            'email' => 'admin@example.com',
+        ]);
+        $this->actingAs($user);
+        Event::fake([
+            AfterCreateOrganization::class,
+        ]);
+
+        // Act
+        $response = $this->post('/teams', [
+            'name' => 'Super Admin Organization',
+        ]);
+
+        // Assert
+        $response->assertStatus(302);
+        $this->assertTrue($user->fresh()->ownedTeams->contains('name', 'Super Admin Organization'));
     }
 }
