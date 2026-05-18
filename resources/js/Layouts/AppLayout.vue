@@ -111,11 +111,13 @@ onMounted(async () => {
     };
 });
 const page = usePage<{
+    time_picker_tab_zero_seconds: boolean;
     has_services_extension?: boolean;
     auth: {
         user: User;
     };
 }>();
+provide('timePickerTabZeroSeconds', page.props.time_picker_tab_zero_seconds ?? true);
 </script>
 
 <template>

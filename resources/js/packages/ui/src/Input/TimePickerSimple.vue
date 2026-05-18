@@ -1,8 +1,9 @@
 <script setup lang="ts">
-import { ref, watch } from 'vue';
+import { computed, inject, ref, watch, type ComputedRef } from 'vue';
 import { getLocalizedDayJs } from '@/packages/ui/src/utils/time';
 import { useFocus } from '@vueuse/core';
 import { TextInput } from '@/packages/ui/src';
+import type { Organization } from '@/packages/api/src';
 
 // This has to be a localized timestamp, not UTC
 const model = defineModel<string | null>({
@@ -18,10 +19,62 @@ const props = withDefaults(
     }
 );
 
+const organization = inject<ComputedRef<Organization>>('organization');
+const timePickerTabZeroSeconds = inject<boolean | undefined>('timePickerTabZeroSeconds');
+
+const timeDisplayFormat = computed(() =>
+    organization?.value?.time_format === '12-hours' ? 'hh:mm A' : 'HH:mm'
+);
+
+function formatInputDisplay(value: string | null) {
+    return value ? getLocalizedDayJs(value).format(timeDisplayFormat.value) : null;
+}
+
+function onTab() {
+    if (timePickerTabZeroSeconds === false) {
+        return;
+    }
+    if (!model.value) {
+        return;
+    }
+    const current = getLocalizedDayJs(model.value);
+    if (current.second() !== 0) {
+        model.value = current.set('seconds', 0).format();
+        emit('changed', model.value);
+    }
+    inputValue.value = formatInputDisplay(model.value);
+}
+
 function updateTime(event: Event) {
     const target = event.target as HTMLInputElement;
     const newValue = target.value.trim();
-    if (newValue.split(':').length === 2) {
+    const twelveHourMatch = newValue.match(/^(\d{1,2}):(\d{2})\s*(AM|PM)$/i);
+    if (twelveHourMatch && organization?.value?.time_format === '12-hours') {
+        const hoursStr = twelveHourMatch[1];
+        const minutesStr = twelveHourMatch[2];
+        const ampmStr = twelveHourMatch[3];
+        if (!hoursStr || !minutesStr || !ampmStr) {
+            inputValue.value = formatInputDisplay(model.value);
+            return;
+        }
+        let newHours = parseInt(hoursStr);
+        const newMinutes = Math.min(parseInt(minutesStr), 59);
+        const ampm = ampmStr.toUpperCase();
+        if (newHours === 12) {
+            newHours = ampm === 'AM' ? 0 : 12;
+        } else if (ampm === 'PM') {
+            newHours += 12;
+        }
+        const currentTime = getLocalizedDayJs(model.value);
+        if (currentTime.hour() !== newHours || currentTime.minute() !== newMinutes) {
+            model.value = currentTime
+                .set('hours', newHours)
+                .set('minutes', newMinutes)
+                .set('seconds', 0)
+                .format();
+            emit('changed', model.value);
+        }
+    } else if (newValue.split(':').length === 2) {
         const [hours, minutes] = newValue.split(':') as [string, string];
         if (!isNaN(parseInt(hours)) && !isNaN(parseInt(minutes))) {
             const currentTime = getLocalizedDayJs(model.value);
@@ -78,11 +131,11 @@ function updateTime(event: Event) {
         }
     }
 
-    inputValue.value = getLocalizedDayJs(model.value).format('HH:mm');
+    inputValue.value = formatInputDisplay(model.value);
 }
 
 watch(model, (value) => {
-    inputValue.value = value ? getLocalizedDayJs(value).format('HH:mm') : null;
+    inputValue.value = formatInputDisplay(value);
 });
 
 const timeInput = ref<HTMLInputElement | null>(null);
@@ -90,7 +143,7 @@ const emit = defineEmits(['changed']);
 
 useFocus(timeInput, { initialValue: props.focus });
 
-const inputValue = ref(model.value ? getLocalizedDayJs(model.value).format('HH:mm') : null);
+const inputValue = ref(formatInputDisplay(model.value));
 </script>
 
 <template>
@@ -102,6 +155,7 @@ const inputValue = ref(model.value ? getLocalizedDayJs(model.value).format('HH:m
         data-testid="time_picker_input"
         type="text"
         @blur="updateTime"
+        @keydown.tab="onTab"
         @keydown.enter.prevent="updateTime"
         @focus="($event.target as HTMLInputElement).select()"
         @mouseup="($event.target as HTMLInputElement).select()"
