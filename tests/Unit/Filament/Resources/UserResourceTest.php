@@ -4,9 +4,11 @@ declare(strict_types=1);
 
 namespace Tests\Unit\Filament\Resources;
 
+use App\Enums\Role;
 use App\Exceptions\Api\CanNotDeleteUserWhoIsOwnerOfOrganizationWithMultipleMembers;
 use App\Filament\Resources\TimeEntryResource;
 use App\Filament\Resources\UserResource;
+use App\Models\Member;
 use App\Models\Organization;
 use App\Models\User;
 use App\Service\DeletionService;
@@ -106,7 +108,47 @@ class UserResourceTest extends FilamentTestCase
         $organization = $user->ownedTeams()->first();
         $this->assertNotNull($organization);
         $this->assertSame('EUR', $organization->currency);
+        $this->assertTrue($organization->personal_team);
+        $this->assertSame($organization->getKey(), $user->current_team_id);
         $this->assertTrue(Hash::check('password', $user->password));
+    }
+
+    public function test_can_create_user_with_assigned_organization(): void
+    {
+        // Arrange
+        $userFake = User::factory()->make();
+        $organization = Organization::factory()->create([
+            'personal_team' => false,
+        ]);
+
+        // Act
+        $response = Livewire::test(UserResource\Pages\CreateUser::class)
+            ->fillForm([
+                'name' => $userFake->name,
+                'email' => $userFake->email,
+                'password_create' => 'password',
+                'timezone' => $userFake->timezone,
+                'week_start' => $userFake->week_start->value,
+                'assign_organization_id' => $organization->getKey(),
+                'assign_organization_role' => Role::Employee->value,
+                'currency' => $organization->currency,
+            ])
+            ->call('create')
+            ->assertHasNoFormErrors();
+
+        // Assert
+        $response->assertSuccessful();
+        $user = User::where('email', $userFake->email)->first();
+        $this->assertNotNull($user);
+        $this->assertSame(1, $user->organizations()->count());
+        $this->assertTrue($user->organizations->contains($organization));
+        $this->assertSame(0, $user->ownedTeams()->where('personal_team', true)->count());
+        $this->assertSame($organization->getKey(), $user->current_team_id);
+        $member = Member::query()
+            ->whereBelongsTo($user, 'user')
+            ->whereBelongsTo($organization, 'organization')
+            ->firstOrFail();
+        $this->assertSame(Role::Employee->value, $member->role);
     }
 
     public function test_can_delete_a_user(): void

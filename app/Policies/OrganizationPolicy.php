@@ -47,7 +47,7 @@ class OrganizationPolicy
             return true;
         }
 
-        return true;
+        return config('app.enable_organization_creation', false) || $user->isSuperAdmin();
     }
 
     /**

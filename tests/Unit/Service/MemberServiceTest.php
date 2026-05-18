@@ -236,4 +236,23 @@ class MemberServiceTest extends TestCaseWithDatabase
             'billable_rate' => 1,
         ]);
     }
+
+    public function test_add_member_without_setting_current_organization_leaves_current_team_unchanged(): void
+    {
+        // Arrange
+        $user = User::factory()->withPersonalOrganization()->create();
+        $originalCurrentTeamId = $user->current_team_id;
+        $organization = Organization::factory()->create([
+            'personal_team' => false,
+        ]);
+
+        // Act
+        $this->memberService->addMember($user, $organization, Role::Employee, true, false);
+
+        // Assert
+        $user->refresh();
+        $this->assertSame($originalCurrentTeamId, $user->current_team_id);
+        $this->assertSame(2, $user->organizations()->count());
+        $this->assertTrue($user->organizations->contains($organization));
+    }
 }

@@ -4,11 +4,13 @@ declare(strict_types=1);
 
 namespace App\Filament\Resources;
 
+use App\Enums\Role;
 use App\Enums\Weekday;
 use App\Exceptions\Api\ApiException;
 use App\Filament\Resources\UserResource\Pages;
 use App\Filament\Resources\UserResource\RelationManagers\OrganizationsRelationManager;
 use App\Filament\Resources\UserResource\RelationManagers\OwnedOrganizationsRelationManager;
+use App\Models\Organization;
 use App\Models\User;
 use App\Service\DeletionService;
 use App\Service\TimezoneService;
@@ -17,6 +19,8 @@ use Exception;
 use Filament\Forms;
 use Filament\Forms\Components\TextInput;
 use Filament\Forms\Form;
+use Filament\Forms\Get;
+use Filament\Forms\Set;
 use Filament\Notifications\Notification;
 use Filament\Resources\Resource;
 use Filament\Tables;
@@ -102,8 +106,37 @@ class UserResource extends Resource
                     ->visibleOn(['create'])
                     ->required(fn (string $context): bool => $context === 'create')
                     ->maxLength(255),
+                Forms\Components\Select::make('assign_organization_id')
+                    ->label('Organization')
+                    ->options(fn (): array => Organization::query()->orderBy('name')->pluck('name', 'id')->all())
+                    ->searchable()
+                    ->nullable()
+                    ->live()
+                    ->afterStateUpdated(function (?string $state, Set $set): void {
+                        if (filled($state)) {
+                            $organization = Organization::query()->find($state);
+                            $set('currency', $organization?->currency);
+
+                            return;
+                        }
+
+                        $set('currency', null);
+                    })
+                    ->visibleOn(['create']),
+                Forms\Components\Select::make('assign_organization_role')
+                    ->label('Organization role')
+                    ->options(collect(Role::cases())
+                        ->reject(fn (Role $role): bool => in_array($role, [Role::Owner, Role::Placeholder], true))
+                        ->mapWithKeys(fn (Role $role): array => [$role->value => ucfirst($role->value)])
+                        ->all())
+                    ->default(Role::Employee->value)
+                    ->required(fn (Get $get): bool => filled($get('assign_organization_id')))
+                    ->visible(fn (Get $get): bool => filled($get('assign_organization_id')))
+                    ->visibleOn(['create']),
                 Forms\Components\Select::make('currency')
-                    ->label('Currency (Personal Organization)')
+                    ->label(fn (Get $get): string => filled($get('assign_organization_id'))
+                        ? 'Currency (Organization)'
+                        : 'Currency (Personal Organization)')
                     ->options(function (): array {
                         $currencies = ISOCurrencyProvider::getInstance()->getAvailableCurrencies();
                         $select = [];
@@ -113,7 +146,9 @@ class UserResource extends Resource
 
                         return $select;
                     })
-                    ->required()
+                    ->required(fn (Get $get): bool => blank($get('assign_organization_id')))
+                    ->disabled(fn (Get $get): bool => filled($get('assign_organization_id')))
+                    ->dehydrated(true)
                     ->visibleOn(['create'])
                     ->searchable(),
                 Forms\Components\DateTimePicker::make('created_at')
