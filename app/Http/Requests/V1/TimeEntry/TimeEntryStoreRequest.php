@@ -39,9 +39,8 @@ class TimeEntryStoreRequest extends BaseFormRequest
                 })->uuid(),
             ],
             'project_id' => [
-                'nullable',
+                'required',
                 'string',
-                'required_with:task_id',
                 ExistsEloquent::make(Project::class, null, function (Builder $builder): Builder {
                     /** @var Builder<Project> $builder */
                     $builder = $builder->whereBelongsTo($this->organization, 'organization');
@@ -88,7 +87,8 @@ class TimeEntryStoreRequest extends BaseFormRequest
             ],
             // Description of time entry
             'description' => [
-                'nullable',
+                'required',
+                'filled',
                 'string',
                 'max:5000',
             ],

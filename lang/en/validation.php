@@ -204,6 +204,8 @@ return [
     'task_belongs_to_project' => 'The :attribute is not part of the given project.',
     'project_name_already_exists' => 'A project with the same name and client already exists in the organization.',
     'overlapping_time_entry' => 'Overlapping time entries are not allowed.',
+    'time_entry_project_cannot_be_removed' => 'The :attribute cannot be removed.',
+    'time_entry_description_cannot_be_removed' => 'The :attribute cannot be removed.',
     'tag_name_already_exists' => 'A tag with the same name already exists in the organization.',
     'member_group_name_already_exists' => 'A group with the same name already exists in the organization.',
     'client_name_already_exists' => 'A client with the same name already exists in the organization.',
