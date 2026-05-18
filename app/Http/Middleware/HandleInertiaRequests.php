@@ -61,6 +61,10 @@ class HandleInertiaRequests extends Middleware
             'flash' => [
                 'message' => fn () => $request->session()->get('message'),
             ],
+            'time_picker_tab_zero_seconds' => filter_var(
+                env('TIME_PICKER_TAB_ZERO_SECONDS', false),
+                FILTER_VALIDATE_BOOLEAN
+            ),
         ]);
     }
 }
