@@ -9,6 +9,7 @@ enum Role: string
     case Owner = 'owner';
     case Admin = 'admin';
     case Manager = 'manager';
+    case HR = 'hr';
     case Employee = 'employee';
     case Placeholder = 'placeholder';
 }

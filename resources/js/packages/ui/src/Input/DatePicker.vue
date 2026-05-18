@@ -18,6 +18,8 @@ const props = defineProps<{
     class?: string;
     size?: 'sm' | 'default';
     clearable?: boolean;
+    /** Earliest selectable calendar day (`YYYY-MM-DD`) */
+    minDate?: string | null;
 }>();
 
 // This has to be a localized timestamp, not UTC
@@ -41,6 +43,17 @@ const dateString = computed(() => {
 const calendarDate = computed(() => {
     if (!dateString.value) return undefined;
     return parseDate(dateString.value);
+});
+
+const minCalendarValue = computed((): DateValue | undefined => {
+    if (!props.minDate) {
+        return undefined;
+    }
+    try {
+        return parseDate(props.minDate);
+    } catch {
+        return undefined;
+    }
 });
 
 const displayDate = computed(() => {
@@ -94,6 +107,7 @@ function handleClear(event: Event) {
                     mode="single"
                     :model-value="calendarDate"
                     :week-starts-on="weekStartsOn"
+                    :min-value="minCalendarValue"
                     @update:model-value="handleDateSelect" />
             </PopoverContent>
         </Popover>

@@ -11,7 +11,9 @@ use App\Http\Controllers\Api\V1\ImportController;
 use App\Http\Controllers\Api\V1\InvitationController;
 use App\Http\Controllers\Api\V1\MemberController;
 use App\Http\Controllers\Api\V1\MemberGroupController;
+use App\Http\Controllers\Api\V1\MemberTimeEntryEditOverrideController;
 use App\Http\Controllers\Api\V1\OrganizationController;
+use App\Http\Controllers\Api\V1\OrganizationTimeEntryEditPolicyController;
 use App\Http\Controllers\Api\V1\ProjectController;
 use App\Http\Controllers\Api\V1\ProjectMemberController;
 use App\Http\Controllers\Api\V1\Public\ReportController as PublicReportController;
@@ -46,6 +48,9 @@ Route::prefix('v1')->name('v1.')->group(static function (): void {
         Route::name('organizations.')->group(static function (): void {
             Route::get('/organizations/{organization}', [OrganizationController::class, 'show'])->name('show');
             Route::put('/organizations/{organization}', [OrganizationController::class, 'update'])->name('update');
+            Route::get('/organizations/{organization}/time-entry-edit-policy', [OrganizationTimeEntryEditPolicyController::class, 'show'])->name('time-entry-edit-policy.show');
+            Route::post('/organizations/{organization}/time-entry-edit-policy', [OrganizationTimeEntryEditPolicyController::class, 'store'])->name('time-entry-edit-policy.store');
+            Route::delete('/organizations/{organization}/time-entry-edit-policy', [OrganizationTimeEntryEditPolicyController::class, 'destroy'])->name('time-entry-edit-policy.destroy');
         });
 
         // Member routes
@@ -53,6 +58,10 @@ Route::prefix('v1')->name('v1.')->group(static function (): void {
             Route::get('/members', [MemberController::class, 'index'])->name('index');
             Route::put('/members/{member}', [MemberController::class, 'update'])->name('update');
             Route::delete('/members/{member}', [MemberController::class, 'destroy'])->name('destroy');
+            Route::get('/member-time-entry-edit-overrides', [MemberTimeEntryEditOverrideController::class, 'index'])->name('time-entry-edit-overrides.index');
+            Route::post('/member-time-entry-edit-overrides', [MemberTimeEntryEditOverrideController::class, 'store'])->name('time-entry-edit-overrides.store');
+            Route::put('/member-time-entry-edit-overrides/{memberTimeEntryEditOverride}', [MemberTimeEntryEditOverrideController::class, 'update'])->name('time-entry-edit-overrides.update');
+            Route::delete('/member-time-entry-edit-overrides/{memberTimeEntryEditOverride}', [MemberTimeEntryEditOverrideController::class, 'destroy'])->name('time-entry-edit-overrides.destroy');
             Route::post('/members/{member}/invite-placeholder', [MemberController::class, 'invitePlaceholder'])->name('invite-placeholder');
             Route::post('/members/{member}/make-placeholder', [MemberController::class, 'makePlaceholder'])->name('make-placeholder');
             Route::post('member/{member}/merge-into', [MemberController::class, 'mergeInto'])->name('merge-into');

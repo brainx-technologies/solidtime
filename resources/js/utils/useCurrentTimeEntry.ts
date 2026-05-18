@@ -165,34 +165,44 @@ export const useCurrentTimeEntryStore = defineStore('currentTimeEntry', () => {
         const user = getCurrentUserId();
         const organization = getCurrentOrganizationId();
         if (organization) {
-            const response = await handleApiRequestNotifications(
-                () =>
-                    api.updateTimeEntry(
-                        {
-                            description: currentTimeEntry.value.description,
-                            user_id: user,
-                            project_id: currentTimeEntry.value.project_id,
-                            task_id: currentTimeEntry.value.task_id,
-                            start: currentTimeEntry.value.start,
-                            billable: currentTimeEntry.value.billable,
-                            end: currentTimeEntry.value.end,
-                            tags: currentTimeEntry.value.tags,
-                        },
-                        {
-                            params: {
-                                organization: organization,
-                                timeEntry: currentTimeEntry.value.id,
+            try {
+                const response = await handleApiRequestNotifications(
+                    () =>
+                        api.updateTimeEntry(
+                            {
+                                description: currentTimeEntry.value.description,
+                                user_id: user,
+                                project_id: currentTimeEntry.value.project_id,
+                                task_id: currentTimeEntry.value.task_id,
+                                start: currentTimeEntry.value.start,
+                                billable: currentTimeEntry.value.billable,
+                                end: currentTimeEntry.value.end,
+                                tags: currentTimeEntry.value.tags,
                             },
-                        }
-                    ),
-                'Time entry updated!'
-            );
-            if (response?.data) {
-                if (response.data.end === null) {
-                    currentTimeEntry.value = response.data;
-                } else {
-                    $reset();
-                    stopLiveTimer();
+                            {
+                                params: {
+                                    organization: organization,
+                                    timeEntry: currentTimeEntry.value.id,
+                                },
+                            }
+                        ),
+                    'Time entry updated!'
+                );
+                if (response?.data) {
+                    if (response.data.end === null) {
+                        currentTimeEntry.value = response.data;
+                    } else {
+                        $reset();
+                        stopLiveTimer();
+                    }
+                }
+            } catch {
+                // Only re-sync with the server when the entry is still running.
+                // The active endpoint returns entries where end IS NULL, so it
+                // can authoritatively revert local edits to a running timer
+                // without trusting potentially stale localStorage.
+                if (currentTimeEntry.value.end === null) {
+                    await fetchCurrentTimeEntry();
                 }
             }
         } else {
